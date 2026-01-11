@@ -1,30 +1,66 @@
 {
   "expo": {
-    "name": "dwelltime",
+    "name": "DwellTime",
     "slug": "dwelltime",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
+    "scheme": "dwelltime",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#121212"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.dwelltime.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "DwellTime needs your location to detect when you arrive at facilities and track detention time.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "DwellTime needs background location access to continue tracking detention time when the app is in the background.",
+        "NSLocationAlwaysUsageDescription": "DwellTime uses your location to track detention time at facilities, even when the app is closed.",
+        "NSCameraUsageDescription": "DwellTime uses your camera to capture photos of dock conditions, BOLs, and check-in documentation.",
+        "NSPhotoLibraryUsageDescription": "DwellTime needs access to your photo library to attach existing photos as evidence.",
+        "UIBackgroundModes": ["location", "fetch", "remote-notification"]
+      }
     },
     "android": {
+      "package": "com.dwelltime.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#121212"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#121212",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }

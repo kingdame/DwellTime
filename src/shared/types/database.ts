@@ -128,3 +128,87 @@ export interface Subscription {
   current_period_end: string | null;
   created_at: string;
 }
+
+/**
+ * Database type for Supabase client
+ * This will be auto-generated from Supabase CLI once connected
+ * For now, this is a placeholder structure matching our schema
+ */
+export interface Database {
+  public: {
+    Tables: {
+      users: {
+        Row: User;
+        Insert: Omit<User, 'id' | 'created_at' | 'updated_at'> & {
+          id?: UUID;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<User, 'id' | 'created_at'>>;
+      };
+      facilities: {
+        Row: Facility;
+        Insert: Omit<Facility, 'id' | 'created_at' | 'updated_at'> & {
+          id?: UUID;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<Facility, 'id' | 'created_at'>>;
+      };
+      detention_events: {
+        Row: DetentionEvent;
+        Insert: Omit<DetentionEvent, 'id' | 'created_at' | 'updated_at'> & {
+          id?: UUID;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<DetentionEvent, 'id' | 'created_at'>>;
+      };
+      gps_logs: {
+        Row: GpsLog;
+        Insert: Omit<GpsLog, 'id'> & { id?: UUID };
+        Update: Partial<Omit<GpsLog, 'id'>>;
+      };
+      photos: {
+        Row: Photo;
+        Insert: Omit<Photo, 'id'> & { id?: UUID };
+        Update: Partial<Omit<Photo, 'id'>>;
+      };
+      facility_reviews: {
+        Row: FacilityReview;
+        Insert: Omit<FacilityReview, 'id' | 'created_at'> & {
+          id?: UUID;
+          created_at?: string;
+        };
+        Update: Partial<Omit<FacilityReview, 'id' | 'created_at'>>;
+      };
+      invoices: {
+        Row: Invoice;
+        Insert: Omit<Invoice, 'id' | 'created_at'> & {
+          id?: UUID;
+          created_at?: string;
+        };
+        Update: Partial<Omit<Invoice, 'id' | 'created_at'>>;
+      };
+      subscriptions: {
+        Row: Subscription;
+        Insert: Omit<Subscription, 'id' | 'created_at'> & {
+          id?: UUID;
+          created_at?: string;
+        };
+        Update: Partial<Omit<Subscription, 'id' | 'created_at'>>;
+      };
+    };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: {
+      facility_type: 'shipper' | 'receiver' | 'both' | 'unknown';
+      event_type: 'pickup' | 'delivery';
+      event_status: 'active' | 'completed' | 'invoiced' | 'paid';
+      photo_category: 'dock' | 'bol' | 'conditions' | 'checkin' | 'other';
+      subscription_tier: 'free' | 'pro' | 'fleet' | 'enterprise';
+      subscription_status: 'active' | 'canceled' | 'past_due' | 'trialing';
+      invoice_status: 'draft' | 'sent' | 'paid';
+    };
+  };
+}

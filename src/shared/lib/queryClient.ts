@@ -1,24 +1,25 @@
 /**
  * TanStack Query Client Configuration
- * Will be configured when TanStack Query is installed
+ * Handles server state caching and synchronization
  */
 
-// Placeholder - will be implemented in Task 1.3
-export const queryClient = null;
+import { QueryClient } from '@tanstack/react-query';
 
-// TODO: Configure with:
-// import { QueryClient } from '@tanstack/react-query';
-//
-// export const queryClient = new QueryClient({
-//   defaultOptions: {
-//     queries: {
-//       staleTime: 1000 * 60 * 5, // 5 minutes
-//       gcTime: 1000 * 60 * 30, // 30 minutes (formerly cacheTime)
-//       retry: 2,
-//       refetchOnWindowFocus: false,
-//     },
-//   },
-// });
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 30, // 30 minutes (formerly cacheTime)
+      retry: 2,
+      refetchOnWindowFocus: false,
+      networkMode: 'offlineFirst', // Support offline-first architecture
+    },
+    mutations: {
+      retry: 1,
+      networkMode: 'offlineFirst',
+    },
+  },
+});
 
 // Query key factory for type-safe queries
 export const queryKeys = {
