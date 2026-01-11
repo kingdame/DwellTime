@@ -75,13 +75,13 @@ DwellTime is a GPS-verified detention tracking platform for trucking professiona
 - [x] **1.4.6** Implement auth guard in root layout
 
 #### 1.5 Authentication Flow
-- [ ] **1.5.1** Create `AuthProvider` component with session listener
-- [ ] **1.5.2** Build Sign In screen (email + password inputs, submit button)
-- [ ] **1.5.3** Build Sign Up screen (email, password, confirm password)
-- [ ] **1.5.4** Implement sign in logic with Supabase
-- [ ] **1.5.5** Implement sign up logic with email verification
-- [ ] **1.5.6** Implement sign out functionality
-- [ ] **1.5.7** Add loading states and error handling
+- [x] **1.5.1** Create `AuthProvider` component with session listener (AuthStateListener in _layout.tsx)
+- [x] **1.5.2** Build Sign In screen (email + password inputs, submit button)
+- [x] **1.5.3** Build Sign Up screen (email, password, confirm password)
+- [x] **1.5.4** Implement sign in logic with Supabase
+- [x] **1.5.5** Implement sign up logic with email verification
+- [x] **1.5.6** Implement sign out functionality (Profile screen)
+- [x] **1.5.7** Add loading states and error handling
 - [ ] **1.5.8** Test auth flow on both iOS and Android
 
 #### 1.6 Quick Onboarding (First Launch Only)
@@ -98,8 +98,8 @@ DwellTime is a GPS-verified detention tracking platform for trucking professiona
 - [x] **1.7.4** Build Input component (text, password, with label/error states)
 - [x] **1.7.5** Build Card component
 - [x] **1.7.6** Build LoadingSpinner component
-- [ ] **1.7.7** Build Toast/notification component
-- [ ] **1.7.8** Implement dark mode toggle and theme provider
+- [x] **1.7.7** Build Toast/notification component (ToastContainer with animations)
+- [x] **1.7.8** Implement dark mode toggle and theme provider (toggleTheme in uiStore, used in Profile)
 
 ---
 
@@ -157,7 +157,7 @@ DwellTime is a GPS-verified detention tracking platform for trucking professiona
 - [x] **2.4.3** Implement grace period countdown (configurable, default 2 hours)
 - [x] **2.4.4** Implement detention timer (starts after grace period)
 - [x] **2.4.5** Create TimerDisplay component (HH:MM:SS format)
-- [ ] **2.4.6** Implement timer persistence (survives app restart)
+- [x] **2.4.6** Implement timer persistence (survives app restart) - AsyncStorage with Zustand persist
 - [x] **2.4.7** Add "money earned" real-time calculation display
 - [x] **2.4.8** Create timer utilities with tests (`src/features/detention/utils/timerUtils.ts` - 17 tests)
 
@@ -171,11 +171,11 @@ DwellTime is a GPS-verified detention tracking platform for trucking professiona
 - [ ] **2.5.7** Add manual start option (for GPS fallback)
 
 #### 2.6 GPS Logging
-- [ ] **2.6.1** Create GPS logging service
-- [ ] **2.6.2** Implement 5-minute interval logging during detention
-- [ ] **2.6.3** Store GPS logs locally (offline support)
-- [ ] **2.6.4** Implement batch upload to Supabase when online
-- [ ] **2.6.5** Create offline queue with sync indicator
+- [x] **2.6.1** Create GPS logging service (useDetentionTracking hook + detention store)
+- [x] **2.6.2** Implement 5-minute interval logging during detention
+- [x] **2.6.3** Store GPS logs locally (offline support) - pendingGpsLogs in store
+- [x] **2.6.4** Implement batch upload to Supabase when online
+- [x] **2.6.5** Create offline queue with sync indicator
 - [ ] **2.6.6** Test background GPS logging
 
 #### 2.7 Push Notifications (Configurable)
@@ -189,20 +189,20 @@ DwellTime is a GPS-verified detention tracking platform for trucking professiona
 - [ ] **2.7.8** Test notifications on both platforms
 
 #### 2.8 Offline Sync Architecture
-- [ ] **2.8.1** Design offline data model (what gets stored locally)
-- [ ] **2.8.2** Implement local SQLite or WatermelonDB for offline detention events
-- [ ] **2.8.3** Create sync queue for pending GPS logs and photos
+- [x] **2.8.1** Design offline data model (pendingGpsLogs, pendingPhotos in Zustand store)
+- [x] **2.8.2** Implement local storage for offline detention events (AsyncStorage with Zustand persist)
+- [x] **2.8.3** Create sync queue for pending GPS logs and photos
 - [ ] **2.8.4** Implement conflict resolution (last-write-wins with timestamps)
 - [ ] **2.8.5** Build sync status indicator in header (shows when syncing/offline)
 - [ ] **2.8.6** Add "Still at facility?" popup when offline >30 mins then signal returns
 - [ ] **2.8.7** Test 24-hour offline scenario end-to-end
 
 #### 2.9 Evidence Chain & Immutability
-- [ ] **2.9.1** Add `verification_code` field to detention_events table (unique 8-char alphanumeric)
-- [ ] **2.9.2** Generate verification code on event creation (cannot be changed)
-- [ ] **2.9.3** Add `evidence_hash` field - SHA256 of GPS logs + timestamps + photos
+- [x] **2.9.1** Add `verification_code` field to detention_events table (migration 002)
+- [x] **2.9.2** Generate verification code on event creation (8-char alphanumeric in store)
+- [x] **2.9.3** Add `evidence_hash` field - SHA256 of GPS logs + timestamps + photos (migration 002)
 - [ ] **2.9.4** Create evidence summary JSON structure (portable proof)
-- [ ] **2.9.5** Ensure GPS logs have `created_at` timestamps that cannot be backdated
+- [x] **2.9.5** Ensure GPS logs have `created_at` timestamps that cannot be backdated
 - [ ] **2.9.6** Add EXIF metadata preservation for photos (GPS coords, timestamp)
 
 ---

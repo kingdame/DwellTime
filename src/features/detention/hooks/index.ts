@@ -8,3 +8,9 @@ export type {
   DetentionTimerState,
   DetentionTimerActions,
 } from './useDetentionTimer';
+
+export { useDetentionTracking } from './useDetentionTracking';
+export type {
+  DetentionTrackingState,
+  DetentionTrackingActions,
+} from './useDetentionTracking';
