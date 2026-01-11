@@ -1,0 +1,87 @@
+/**
+ * Tab Navigation Layout
+ */
+
+import { Tabs } from 'expo-router';
+import { View, Text, StyleSheet } from 'react-native';
+import { colors } from '../../src/constants/colors';
+
+// Simple icon component
+function TabIcon({ name, focused }: { name: string; focused: boolean }) {
+  const icons: Record<string, string> = {
+    home: '🏠',
+    facilities: '🏢',
+    history: '📋',
+    profile: '👤',
+  };
+  
+  return (
+    <Text style={[styles.icon, focused && styles.iconFocused]}>
+      {icons[name] || '•'}
+    </Text>
+  );
+}
+
+export default function TabLayout() {
+  const theme = colors.dark;
+
+  return (
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: theme.card,
+          borderTopColor: theme.divider,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarActiveTintColor: theme.primary,
+        tabBarInactiveTintColor: theme.textSecondary,
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+        },
+      }}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Home',
+          tabBarIcon: ({ focused }) => <TabIcon name="home" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="facilities"
+        options={{
+          title: 'Facilities',
+          tabBarIcon: ({ focused }) => <TabIcon name="facilities" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: 'History',
+          tabBarIcon: ({ focused }) => <TabIcon name="history" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ focused }) => <TabIcon name="profile" focused={focused} />,
+        }}
+      />
+    </Tabs>
+  );
+}
+
+const styles = StyleSheet.create({
+  icon: {
+    fontSize: 20,
+    opacity: 0.6,
+  },
+  iconFocused: {
+    opacity: 1,
+  },
+});
