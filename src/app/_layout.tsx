@@ -17,6 +17,7 @@ import { useAuthStore } from '@/features/auth/store';
 import { useUIStore } from '@/shared/stores/uiStore';
 import { supabase } from '@/shared/lib/supabase';
 import { colors } from '@/constants';
+import { ToastContainer } from '@/shared/components/ui';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -91,6 +92,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <AuthStateListener />
+          <ToastContainer />
           <StatusBar style={isDark ? 'light' : 'dark'} />
           <Stack
             screenOptions={{
