@@ -47,3 +47,6 @@ coverage/
 
 # Backup folder (contains old code)
 src-backup/
+
+# Supabase
+supabase/.temp/
