@@ -2,11 +2,16 @@
  * Home Tab - Main detention tracking screen
  */
 
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { colors } from '../../src/constants/colors';
-import { StatusCard, DetentionTimerState } from '../../src/features/detention/components';
+import { StatusCard, DetentionTimerState, NotesInput } from '../../src/features/detention/components';
 import { useDetentionStore } from '../../src/features/detention/store';
+import {
+  FloatingCaptureButton,
+  PhotoGallerySummary,
+  type PhotoMetadata,
+} from '../../src/features/evidence';
 
 // Format milliseconds to HH:MM:SS
 function formatTime(ms: number): string {
@@ -22,15 +27,17 @@ function formatCurrency(amount: number): string {
   return `$${amount.toFixed(2)}`;
 }
 
-// Grace period in ms (2 hours)
-const GRACE_PERIOD_MS = 2 * 60 * 60 * 1000;
-// Hourly rate after grace period
-const HOURLY_RATE = 50;
-
 export default function HomeTab() {
   const theme = colors.dark;
-  const { isTracking, startTime, facilityName, startTracking, stopTracking } = useDetentionStore();
-  
+  const store = useDetentionStore();
+  const { activeDetention, updateNotes } = store;
+  const isTracking = activeDetention.isTracking;
+  const facilityName = activeDetention.facilityName;
+
+  // Local state for photos (pending upload)
+  const [photos, setPhotos] = useState<PhotoMetadata[]>([]);
+  const [notes, setNotes] = useState(activeDetention.notes || '');
+
   const [timerState, setTimerState] = useState<DetentionTimerState>({
     isActive: false,
     startTime: null,
@@ -44,7 +51,8 @@ export default function HomeTab() {
 
   // Update timer every second when tracking
   useEffect(() => {
-    if (!isTracking || !startTime) {
+    const arrivalTime = activeDetention.arrivalTime;
+    if (!isTracking || !arrivalTime) {
       setTimerState({
         isActive: false,
         startTime: null,
@@ -58,13 +66,17 @@ export default function HomeTab() {
       return;
     }
 
+    const startTime = new Date(arrivalTime).getTime();
+    const gracePeriodMs = activeDetention.gracePeriodMinutes * 60 * 1000;
+    const hourlyRate = activeDetention.hourlyRate;
+
     const interval = setInterval(() => {
       const now = Date.now();
       const elapsedMs = now - startTime;
-      const isInGracePeriod = elapsedMs < GRACE_PERIOD_MS;
-      const detentionMs = isInGracePeriod ? 0 : elapsedMs - GRACE_PERIOD_MS;
+      const isInGracePeriod = elapsedMs < gracePeriodMs;
+      const detentionMs = isInGracePeriod ? 0 : elapsedMs - gracePeriodMs;
       const earningsHours = detentionMs / (1000 * 60 * 60);
-      const earnings = earningsHours * HOURLY_RATE;
+      const earnings = earningsHours * hourlyRate;
 
       setTimerState({
         isActive: true,
@@ -79,18 +91,72 @@ export default function HomeTab() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isTracking, startTime]);
+  }, [isTracking, activeDetention.arrivalTime, activeDetention.gracePeriodMinutes, activeDetention.hourlyRate]);
 
-  const handleStartTracking = () => {
+  // Photo capture handler
+  const handlePhotoCapture = useCallback((photo: PhotoMetadata) => {
+    setPhotos((prev) => [...prev, photo]);
+  }, []);
+
+  // Photo capture error handler
+  const handlePhotoError = useCallback((error: string) => {
+    Alert.alert('Photo Error', error);
+  }, []);
+
+  // Notes change handler
+  const handleNotesChange = useCallback((text: string) => {
+    setNotes(text);
+  }, []);
+
+  // Notes blur handler - save to store
+  const handleNotesBlur = useCallback(() => {
+    updateNotes(notes);
+  }, [notes, updateNotes]);
+
+  // Reset photos when tracking stops
+  useEffect(() => {
+    if (!isTracking) {
+      setPhotos([]);
+      setNotes('');
+    }
+  }, [isTracking]);
+
+  const handleStartTracking = async () => {
     // For demo, use a placeholder facility
-    startTracking('demo-facility', 'Demo Facility');
+    const demoFacility = {
+      id: 'demo-facility',
+      name: 'Demo Facility',
+      address: '123 Demo St',
+      city: 'San Francisco',
+      state: 'CA',
+      zip: '94102',
+      lat: 37.7749,
+      lng: -122.4194,
+      facility_type: 'receiver' as const,
+      avg_wait_minutes: null,
+      avg_rating: null,
+      total_reviews: 0,
+      overnight_parking: null,
+      parking_spaces: null,
+      restrooms: null,
+      driver_lounge: null,
+      water_available: null,
+      vending_machines: null,
+      wifi_available: null,
+      showers_available: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    await store.startTracking(demoFacility, 'delivery', 120, 75);
   };
 
-  const handleStopTracking = () => {
-    stopTracking();
+  const handleStopTracking = async () => {
+    // TODO: Upload photos before ending
+    await store.endTracking();
   };
 
   return (
+  <>
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.textPrimary }]}>DwellTime</Text>
@@ -104,6 +170,28 @@ export default function HomeTab() {
         onStartTracking={handleStartTracking}
         onStopTracking={handleStopTracking}
       />
+
+      {/* Evidence Section - Only shown when tracking */}
+      {isTracking && (
+        <View style={styles.evidenceSection}>
+          <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>
+            Evidence
+          </Text>
+
+          {/* Photo Gallery Summary */}
+          <PhotoGallerySummary photos={photos} />
+
+          {/* Notes Input */}
+          <View style={styles.notesContainer}>
+            <NotesInput
+              value={notes}
+              onChange={handleNotesChange}
+              onBlur={handleNotesBlur}
+              placeholder="Add notes about delays, issues, etc..."
+            />
+          </View>
+        </View>
+      )}
 
       <View style={[styles.statsCard, { backgroundColor: theme.card }]}>
         <Text style={[styles.statsTitle, { color: theme.textPrimary }]}>
@@ -125,6 +213,16 @@ export default function HomeTab() {
         </View>
       </View>
     </ScrollView>
+
+    {/* Floating Camera Button - Only shown when tracking */}
+    {isTracking && (
+      <FloatingCaptureButton
+        onPhotoCapture={handlePhotoCapture}
+        onError={handlePhotoError}
+        defaultCategory="dock"
+      />
+    )}
+  </>
   );
 }
 
@@ -168,5 +266,18 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 12,
     marginTop: 4,
+  },
+  evidenceSection: {
+    marginTop: 20,
+    marginBottom: 20,
+    gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  notesContainer: {
+    marginTop: 8,
   },
 });
