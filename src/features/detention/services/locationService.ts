@@ -161,7 +161,7 @@ export function findNearestFacility(
  * Start background location tracking
  */
 export async function startBackgroundTracking(
-  onLocation?: (location: LocationCoords) => void
+  _onLocation?: (location: LocationCoords) => void
 ): Promise<boolean> {
   try {
     const hasPermission = await checkLocationPermissions();

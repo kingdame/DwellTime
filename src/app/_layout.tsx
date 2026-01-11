@@ -33,7 +33,7 @@ function AuthStateListener() {
     refreshSession();
 
     // Listen for auth state changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
 
       if (session?.user) {

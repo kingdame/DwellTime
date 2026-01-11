@@ -4,7 +4,7 @@
  * Will be implemented when Zustand is installed
  */
 
-import type { DetentionEvent, Facility, GpsLog, Photo } from '@/shared/types';
+import type { DetentionEvent, Facility, Photo } from '@/shared/types';
 
 export interface PendingPhoto {
   localUri: string;

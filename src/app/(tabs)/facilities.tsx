@@ -3,7 +3,7 @@
  * Search and browse facilities with ratings
  */
 
-import { View, Text, StyleSheet, TextInput, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useUIStore } from '@/shared/stores/uiStore';

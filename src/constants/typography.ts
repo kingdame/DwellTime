@@ -29,75 +29,56 @@ export const fontFamily = {
   }),
 };
 
-export const fontSize = {
-  display: 32,  // Timer display, large numbers
-  h1: 24,       // Screen titles
-  h2: 20,       // Section headers
-  h3: 18,       // Card titles
-  body: 16,     // Primary content (minimum for accessibility)
-  bodySmall: 14, // Secondary content, metadata
-  caption: 12,  // Labels, timestamps, hints
-  button: 16,   // Button text
+// Consolidated typography object for easy imports
+export const typography = {
+  fontSize: {
+    xs: 12,
+    sm: 14,
+    base: 16,
+    lg: 18,
+    xl: 20,
+    '2xl': 24,
+    '3xl': 30,
+    '4xl': 36,
+    '5xl': 48,
+  },
+  fontWeight: {
+    regular: '400' as const,
+    medium: '500' as const,
+    semibold: '600' as const,
+    bold: '700' as const,
+  },
+  lineHeight: {
+    tight: 1.25,
+    normal: 1.5,
+    relaxed: 1.75,
+  },
 } as const;
 
-export const lineHeight = {
-  display: 40,
-  h1: 32,
-  h2: 28,
-  h3: 24,
-  body: 24,
-  bodySmall: 20,
-  caption: 16,
-  button: 24,
-} as const;
-
-export const fontWeight = {
-  regular: '400' as const,
-  medium: '500' as const,
-  semibold: '600' as const,
-  bold: '700' as const,
-};
-
-// Pre-composed text styles
+// Pre-composed text styles for common use cases
 export const textStyles = {
   display: {
-    fontSize: fontSize.display,
-    lineHeight: lineHeight.display,
-    fontWeight: fontWeight.bold,
+    fontSize: typography.fontSize['4xl'],
+    fontWeight: typography.fontWeight.bold,
   },
   h1: {
-    fontSize: fontSize.h1,
-    lineHeight: lineHeight.h1,
-    fontWeight: fontWeight.semibold,
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.semibold,
   },
   h2: {
-    fontSize: fontSize.h2,
-    lineHeight: lineHeight.h2,
-    fontWeight: fontWeight.semibold,
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.semibold,
   },
   h3: {
-    fontSize: fontSize.h3,
-    lineHeight: lineHeight.h3,
-    fontWeight: fontWeight.medium,
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.medium,
   },
   body: {
-    fontSize: fontSize.body,
-    lineHeight: lineHeight.body,
-    fontWeight: fontWeight.regular,
-  },
-  bodySmall: {
-    fontSize: fontSize.bodySmall,
-    lineHeight: lineHeight.bodySmall,
-    fontWeight: fontWeight.regular,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.regular,
   },
   caption: {
-    fontSize: fontSize.caption,
-    lineHeight: lineHeight.caption,
-    fontWeight: fontWeight.medium,
-  },
-  button: {
-    fontSize: fontSize.button,
-    lineHeight: lineHeight.button,
-    fontWeight: fontWeight.semibold,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.regular,
   },
 } as const;

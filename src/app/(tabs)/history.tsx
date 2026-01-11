@@ -3,7 +3,7 @@
  * List of past detention events
  */
 
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useUIStore } from '@/shared/stores/uiStore';

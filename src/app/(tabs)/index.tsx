@@ -3,19 +3,52 @@
  * Main dashboard with detention tracking status
  */
 
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuthStore } from '@/features/auth/store';
 import { useUIStore } from '@/shared/stores/uiStore';
+import { useDetentionTimer, StatusCard } from '@/features/detention';
 import { colors, typography, config } from '@/constants';
 
 export default function HomeScreen() {
   const { user } = useAuthStore();
   const theme = useUIStore((state) => state.theme);
   const isDark = theme === 'dark';
+  const timer = useDetentionTimer();
 
   const themeColors = isDark ? colors.dark : colors.light;
+
+  const handleStartTracking = () => {
+    timer.startTimer(
+      new Date(),
+      user?.grace_period_minutes ?? config.detention.defaultGracePeriodMinutes,
+      user?.hourly_rate ?? config.detention.defaultHourlyRate
+    );
+  };
+
+  const handleStopTracking = () => {
+    Alert.alert(
+      'End Detention',
+      'Are you sure you want to end this detention event?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'End Detention',
+          style: 'destructive',
+          onPress: () => {
+            const result = timer.stopTimer();
+            if (result) {
+              Alert.alert(
+                'Detention Ended',
+                `Total detention: ${Math.round(result.detentionMinutes)} minutes\nAmount: $${result.totalAmount.toFixed(2)}`
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView
@@ -31,33 +64,13 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      {/* Status Card - Not Tracking */}
-      <View style={[styles.statusCard, { backgroundColor: themeColors.card }]}>
-        <View style={styles.statusHeader}>
-          <View
-            style={[
-              styles.statusIndicator,
-              { backgroundColor: themeColors.textSecondary },
-            ]}
-          />
-          <Text style={[styles.statusText, { color: themeColors.textSecondary }]}>
-            Not Tracking
-          </Text>
-        </View>
-
-        <Text style={[styles.statusDescription, { color: themeColors.textSecondary }]}>
-          Start tracking when you arrive at a facility to document detention time
-        </Text>
-
-        <TouchableOpacity
-          style={[styles.startButton, { backgroundColor: colors.timer }]}
-          onPress={() => {
-            // TODO: Implement start tracking
-          }}
-        >
-          <Text style={styles.startButtonText}>Start Tracking</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Status Card */}
+      <StatusCard
+        timerState={timer}
+        isDark={isDark}
+        onStartTracking={handleStartTracking}
+        onStopTracking={handleStopTracking}
+      />
 
       {/* Quick Stats */}
       <View style={styles.statsContainer}>
@@ -122,43 +135,7 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: typography.fontSize['2xl'],
-    fontWeight: typography.fontWeight.bold as '700',
-  },
-  statusCard: {
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-  },
-  statusHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statusIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  statusText: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold as '600',
-  },
-  statusDescription: {
-    fontSize: typography.fontSize.base,
-    marginBottom: 16,
-    lineHeight: 22,
-  },
-  startButton: {
-    height: 56,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  startButtonText: {
-    color: '#FFFFFF',
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold as '600',
+    fontWeight: '700',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -173,7 +150,7 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold as '700',
+    fontWeight: '700',
     marginBottom: 4,
   },
   statLabel: {
@@ -185,7 +162,7 @@ const styles = StyleSheet.create({
   },
   settingsTitle: {
     fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold as '600',
+    fontWeight: '600',
     marginBottom: 16,
   },
   settingsRow: {
@@ -198,6 +175,6 @@ const styles = StyleSheet.create({
   },
   settingsValue: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.medium as '500',
+    fontWeight: '500',
   },
 });

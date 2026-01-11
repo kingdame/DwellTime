@@ -60,6 +60,7 @@ export const colors = {
   money: '#10B981', // Green for earnings
   timer: '#1A56DB', // Blue for active timer
   detention: '#F59E0B', // Amber for detention warning
+  danger: '#EF4444', // Red for destructive actions
 } as const;
 
 export type ColorScheme = typeof colors.light;

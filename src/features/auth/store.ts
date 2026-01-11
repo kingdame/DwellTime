@@ -33,7 +33,7 @@ export interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set, _get) => ({
       // Initial state
       user: null,
       session: null,
@@ -89,15 +89,20 @@ export const useAuthStore = create<AuthState>()(
           if (error) throw error;
 
           // Create user profile in our users table
+          // Note: Database types will be generated after Supabase setup
           if (data.user) {
-            const { error: profileError } = await supabase.from('users').insert({
+            const userProfile = {
               id: data.user.id,
               email: data.user.email!,
               name,
               hourly_rate: config.detention.defaultHourlyRate,
               grace_period_minutes: config.detention.defaultGracePeriodMinutes,
               subscription_tier: 'free',
-            });
+            };
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { error: profileError } = await (supabase as any)
+              .from('users')
+              .insert(userProfile);
 
             if (profileError) {
               console.error('Failed to create user profile:', profileError);
