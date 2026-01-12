@@ -3,7 +3,7 @@
  */
 
 import { Tabs } from 'expo-router';
-import { View, Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
 import { colors } from '../../src/constants/colors';
 
 // Simple icon component
@@ -12,6 +12,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
     home: '🏠',
     facilities: '🏢',
     history: '📋',
+    invoices: '💰',
     profile: '👤',
   };
   
@@ -63,6 +64,13 @@ export default function TabLayout() {
         options={{
           title: 'History',
           tabBarIcon: ({ focused }) => <TabIcon name="history" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="invoices"
+        options={{
+          title: 'Invoices',
+          tabBarIcon: ({ focused }) => <TabIcon name="invoices" focused={focused} />,
         }}
       />
       <Tabs.Screen
