@@ -19,10 +19,14 @@ import {
   InvoiceList,
   InvoiceSummaryCard,
   CreateInvoiceModal,
+  SendInvoiceModal,
   useInvoiceDetails,
   useUpdateInvoiceStatus,
   useShareInvoice,
+  useSendInvoiceEmail,
+  useFrequentContacts,
   type InvoiceWithDetails,
+  type Contact,
 } from '../../src/features/invoices';
 import { useDetentionHistory, type DetentionRecord } from '../../src/features/history';
 import type { Invoice } from '../../src/shared/types';
@@ -49,10 +53,12 @@ function InvoiceDetailModal({
   invoiceId,
   onClose,
   onStatusUpdate,
+  onSendPress,
 }: {
   invoiceId: string;
   onClose: () => void;
   onStatusUpdate: () => void;
+  onSendPress: (invoice: InvoiceWithDetails) => void;
 }) {
   const theme = colors.dark;
   const { data: invoice, isLoading } = useInvoiceDetails(invoiceId);
@@ -87,6 +93,12 @@ function InvoiceDetailModal({
       Alert.alert('Error', error instanceof Error ? error.message : 'Failed to share');
     }
   }, [invoice, shareInvoice]);
+
+  const handleSendEmail = useCallback(() => {
+    if (invoice) {
+      onSendPress(invoice);
+    }
+  }, [invoice, onSendPress]);
 
   if (isLoading || !invoice) {
     return (
@@ -198,9 +210,19 @@ function InvoiceDetailModal({
         {/* Actions */}
         {invoice.status !== 'paid' && (
           <View style={styles.actions}>
+            {/* Send Email Button - available for draft and sent invoices */}
+            <TouchableOpacity
+              style={[styles.actionButton, styles.sendEmailButton, { borderColor: theme.primary }]}
+              onPress={handleSendEmail}
+            >
+              <Text style={[styles.sendEmailButtonText, { color: theme.primary }]}>
+                Send Email
+              </Text>
+            </TouchableOpacity>
+
             {invoice.status === 'draft' && (
               <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: theme.primary }]}
+                style={[styles.actionButton, { backgroundColor: theme.primary, marginTop: 12 }]}
                 onPress={handleMarkSent}
                 disabled={updateStatus.isPending}
               >
@@ -213,7 +235,7 @@ function InvoiceDetailModal({
             )}
             {invoice.status === 'sent' && (
               <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: theme.success }]}
+                style={[styles.actionButton, { backgroundColor: theme.success, marginTop: 12 }]}
                 onPress={handleMarkPaid}
                 disabled={updateStatus.isPending}
               >
@@ -235,10 +257,25 @@ export default function InvoicesTab() {
   const theme = colors.dark;
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [invoiceToSend, setInvoiceToSend] = useState<InvoiceWithDetails | null>(null);
 
   // Fetch completed events for invoice creation
   const { data: historyData } = useDetentionHistory({ status: 'completed' }, 100, 0);
   const availableEvents = (historyData || []) as DetentionRecord[];
+
+  // Fetch frequent contacts for send modal
+  const { data: frequentContacts } = useFrequentContacts(5);
+  const sendInvoiceEmail = useSendInvoiceEmail();
+
+  // Transform EmailContact to Contact type for SendInvoiceModal
+  const recentContacts: Contact[] = (frequentContacts || []).map((contact) => ({
+    id: contact.id,
+    name: contact.name || contact.email.split('@')[0],
+    email: contact.email,
+    company: contact.company || undefined,
+    type: 'recent' as const,
+  }));
 
   const handleInvoicePress = useCallback((invoice: Invoice) => {
     setSelectedInvoice(invoice);
@@ -252,6 +289,35 @@ export default function InvoicesTab() {
     setShowCreateModal(false);
     // Optionally open the new invoice
   }, []);
+
+  const handleSendPress = useCallback((invoice: InvoiceWithDetails) => {
+    setInvoiceToSend(invoice);
+    setShowSendModal(true);
+  }, []);
+
+  const handleCloseSendModal = useCallback(() => {
+    setShowSendModal(false);
+    setInvoiceToSend(null);
+  }, []);
+
+  const handleSendInvoice = useCallback(
+    async (email: string, ccEmail?: string, message?: string) => {
+      if (!invoiceToSend) return;
+
+      await sendInvoiceEmail.mutateAsync({
+        invoiceId: invoiceToSend.id,
+        recipientEmail: email,
+        ccEmail,
+        customMessage: message,
+      });
+
+      // Close modals and show success
+      handleCloseSendModal();
+      setSelectedInvoice(null);
+      Alert.alert('Success', `Invoice sent to ${email}`);
+    },
+    [invoiceToSend, sendInvoiceEmail, handleCloseSendModal]
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -292,6 +358,7 @@ export default function InvoicesTab() {
             invoiceId={selectedInvoice.id}
             onClose={handleCloseDetail}
             onStatusUpdate={() => {}}
+            onSendPress={handleSendPress}
           />
         )}
       </Modal>
@@ -311,6 +378,25 @@ export default function InvoicesTab() {
             onCancel={() => setShowCreateModal(false)}
           />
         </SafeAreaView>
+      </Modal>
+
+      {/* Send Invoice Modal */}
+      <Modal
+        visible={showSendModal && invoiceToSend !== null}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={handleCloseSendModal}
+      >
+        {invoiceToSend && (
+          <SafeAreaView style={[styles.modalContainer, { backgroundColor: theme.background }]}>
+            <SendInvoiceModal
+              invoice={invoiceToSend}
+              recentContacts={recentContacts}
+              onSend={handleSendInvoice}
+              onCancel={handleCloseSendModal}
+            />
+          </SafeAreaView>
+        )}
       </Modal>
     </View>
   );
@@ -464,6 +550,14 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  sendEmailButton: {
+    borderWidth: 2,
+    backgroundColor: 'transparent',
+  },
+  sendEmailButtonText: {
     fontSize: 16,
     fontWeight: '600',
   },
