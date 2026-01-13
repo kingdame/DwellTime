@@ -14,6 +14,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { colors } from '../../src/constants/colors';
 import {
   InvoiceList,
@@ -255,6 +256,7 @@ function InvoiceDetailModal({
 
 export default function InvoicesTab() {
   const theme = colors.dark;
+  const router = useRouter();
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
@@ -329,12 +331,22 @@ export default function InvoicesTab() {
               Manage your billing
             </Text>
           </View>
-          <TouchableOpacity
-            style={[styles.createButton, { backgroundColor: theme.primary }]}
-            onPress={() => setShowCreateModal(true)}
-          >
-            <Text style={styles.createButtonText}>+ New</Text>
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity
+              style={[styles.recoveryButton, { backgroundColor: theme.card }]}
+              onPress={() => router.push('/recovery')}
+            >
+              <Text style={[styles.recoveryButtonText, { color: theme.primary }]}>
+                Recovery
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.createButton, { backgroundColor: theme.primary }]}
+              onPress={() => setShowCreateModal(true)}
+            >
+              <Text style={styles.createButtonText}>+ New</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -423,6 +435,20 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     marginTop: 4,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  recoveryButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  recoveryButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   createButton: {
     paddingHorizontal: 16,
