@@ -5,6 +5,7 @@
 import { Tabs } from 'expo-router';
 import { Text, StyleSheet } from 'react-native';
 import { colors } from '../../src/constants/colors';
+import { useIsFleetAdmin } from '../../src/features/fleet';
 
 // Simple icon component
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
@@ -14,8 +15,9 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
     history: '📋',
     invoices: '💰',
     profile: '👤',
+    fleet: '👥',
   };
-  
+
   return (
     <Text style={[styles.icon, focused && styles.iconFocused]}>
       {icons[name] || '•'}
@@ -25,6 +27,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
 
 export default function TabLayout() {
   const theme = colors.dark;
+  const isFleetAdmin = useIsFleetAdmin();
 
   return (
     <Tabs
@@ -71,6 +74,15 @@ export default function TabLayout() {
         options={{
           title: 'Invoices',
           tabBarIcon: ({ focused }) => <TabIcon name="invoices" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="fleet"
+        options={{
+          title: 'Fleet',
+          tabBarIcon: ({ focused }) => <TabIcon name="fleet" focused={focused} />,
+          // Hide the Fleet tab for non-admin users
+          href: isFleetAdmin ? '/fleet' : null,
         }}
       />
       <Tabs.Screen

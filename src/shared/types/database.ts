@@ -15,7 +15,7 @@ export interface User {
   grace_period_minutes: number;
   invoice_logo_url: string | null;
   invoice_terms: string | null;
-  subscription_tier: 'free' | 'pro' | 'fleet';
+  subscription_tier: 'free' | 'pro' | 'small_fleet' | 'fleet' | 'enterprise';
   stripe_customer_id: string | null;
   created_at: string;
   updated_at: string;
@@ -121,10 +121,14 @@ export interface Subscription {
   user_id: UUID;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
-  tier: 'free' | 'pro' | 'fleet' | 'enterprise';
-  status: 'active' | 'canceled' | 'past_due' | 'trialing';
+  tier: 'free' | 'pro' | 'small_fleet' | 'fleet' | 'enterprise';
+  status: 'active' | 'canceled' | 'past_due' | 'trialing' | 'incomplete';
+  current_period_start: string | null;
   current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  trial_end: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface Database {
@@ -199,8 +203,8 @@ export interface Database {
       event_type: 'pickup' | 'delivery';
       event_status: 'active' | 'completed' | 'invoiced' | 'paid';
       photo_category: 'dock' | 'bol' | 'conditions' | 'checkin' | 'other';
-      subscription_tier: 'free' | 'pro' | 'fleet' | 'enterprise';
-      subscription_status: 'active' | 'canceled' | 'past_due' | 'trialing';
+      subscription_tier: 'free' | 'pro' | 'small_fleet' | 'fleet' | 'enterprise';
+      subscription_status: 'active' | 'canceled' | 'past_due' | 'trialing' | 'incomplete';
       invoice_status: 'draft' | 'sent' | 'paid';
     };
   };
