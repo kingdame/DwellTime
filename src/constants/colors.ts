@@ -30,6 +30,7 @@ export const colors = {
     success: '#22C55E',
     warning: '#F97316',
     error: '#F87171',
+    danger: '#EF4444',
     divider: '#333333',
     cardShadow: 'transparent',
   },

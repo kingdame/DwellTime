@@ -25,7 +25,7 @@ type ViewMode = 'dashboard' | 'aging';
 export default function RecoveryScreen() {
   const theme = colors.dark;
   const router = useRouter();
-  const { refetch, isLoading } = useRecoveryStats();
+  const { refetch, isLoading: _isLoading } = useRecoveryStats();
 
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -40,7 +40,7 @@ export default function RecoveryScreen() {
     router.back();
   }, [router]);
 
-  const handleBucketPress = useCallback((bucket: string) => {
+  const handleBucketPress = useCallback((_bucket: string) => {
     setViewMode('aging');
   }, []);
 

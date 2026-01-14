@@ -12,12 +12,11 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Link, useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 import { colors } from '../../src/constants/colors';
 import { supabase } from '../../src/shared/lib/supabase';
 
 export default function ForgotPassword() {
-  const router = useRouter();
   const theme = colors.dark;
 
   const [email, setEmail] = useState('');

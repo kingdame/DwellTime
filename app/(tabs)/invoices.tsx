@@ -278,7 +278,7 @@ export default function InvoicesTab() {
     name: contact.name || contact.email.split('@')[0],
     email: contact.email,
     company: contact.company || undefined,
-    type: 'recent' as const,
+    type: 'other' as const,
   }));
 
   const handleInvoicePress = useCallback((invoice: Invoice) => {
@@ -289,7 +289,7 @@ export default function InvoicesTab() {
     setSelectedInvoice(null);
   }, []);
 
-  const handleCreateSuccess = useCallback((invoiceId: string) => {
+  const handleCreateSuccess = useCallback((_invoiceId: string) => {
     setShowCreateModal(false);
     // Optionally open the new invoice
   }, []);
@@ -311,7 +311,7 @@ export default function InvoicesTab() {
       await sendInvoiceEmail.mutateAsync({
         invoiceId: invoiceToSend.id,
         recipientEmail: email,
-        ccEmail,
+        ccEmails: ccEmail ? [ccEmail] : undefined,
         customMessage: message,
       });
 
