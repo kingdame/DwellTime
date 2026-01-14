@@ -7,10 +7,23 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { colors } from '@/constants/colors';
 import type { Facility, FacilityReview } from '@/shared/types';
 import { PaymentReliabilityBadge } from './PaymentReliabilityCard';
+import { TruckEntranceCard } from './TruckEntranceCard';
 import { useFacilityReliability } from '../hooks/usePaymentStats';
+import { useAuth } from '@/features/auth';
+
+// Extended facility type with truck entrance fields
+interface FacilityWithTruckEntrance extends Facility {
+  truck_entrance_different?: boolean | null;
+  truck_entrance_address?: string | null;
+  truck_entrance_lat?: number | null;
+  truck_entrance_lng?: number | null;
+  truck_entrance_notes?: string | null;
+  truck_entrance_verified_count?: number | null;
+  truck_entrance_last_updated_at?: string | null;
+}
 
 interface FacilityPreviewCardProps {
-  facility: Facility;
+  facility: FacilityWithTruckEntrance;
   reviews?: FacilityReview[];
   onViewDetails?: () => void;
   onGetDirections?: () => void;
@@ -119,6 +132,7 @@ export function FacilityPreviewCard({
   onGetDirections,
 }: FacilityPreviewCardProps) {
   const theme = colors.dark;
+  const { user } = useAuth();
   const { data: reliability } = useFacilityReliability(facility.id);
 
   return (
@@ -207,12 +221,9 @@ export function FacilityPreviewCard({
           )}
       </View>
 
-      {/* Truck Entrance (placeholder for Phase 8A) */}
+      {/* Truck Entrance */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Truck Entrance</Text>
-        <Text style={[styles.noData, { color: theme.textDisabled }]}>
-          No truck entrance info yet. Be the first to add it!
-        </Text>
+        <TruckEntranceCard facility={facility} userId={user?.id || null} />
       </View>
 
       {/* Recent Reviews */}
