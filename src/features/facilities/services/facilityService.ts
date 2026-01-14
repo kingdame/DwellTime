@@ -300,5 +300,35 @@ export async function getPopularFacilities(limit: number = 10): Promise<Facility
   return data || [];
 }
 
+/**
+ * Get facility with reviews for preview card
+ */
+export async function getFacilityWithReviews(
+  facilityId: string,
+  reviewLimit: number = 5
+): Promise<{
+  facility: Facility;
+  reviews: import('@/shared/types').FacilityReview[];
+} | null> {
+  // Fetch facility
+  const facility = await getFacility(facilityId);
+  if (!facility) return null;
+
+  // Fetch reviews
+  const { data: reviews, error } = await supabase
+    .from('facility_reviews')
+    .select('*')
+    .eq('facility_id', facilityId)
+    .order('created_at', { ascending: false })
+    .limit(reviewLimit);
+
+  if (error) {
+    console.error('Error fetching reviews:', error);
+    return { facility, reviews: [] };
+  }
+
+  return { facility, reviews: reviews || [] };
+}
+
 // Export constants
 export { GEOFENCE_RADIUS_METERS };

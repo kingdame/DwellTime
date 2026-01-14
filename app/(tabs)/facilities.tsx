@@ -1,40 +1,167 @@
 /**
- * Facilities Tab - Manage saved facilities
+ * Facilities Tab - Facility lookup and saved facilities
  */
 
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-native';
 import { colors } from '../../src/constants/colors';
+import { FacilityLookup, FacilitySearch, useRecentFacilities } from '../../src/features/facilities';
+import { useAuth } from '../../src/features/auth';
+import type { Facility } from '../../src/shared/types';
+
+function SavedFacilityCard({ facility }: { facility: Facility }) {
+  const theme = colors.dark;
+
+  return (
+    <View style={[styles.facilityCard, { backgroundColor: theme.card }]}>
+      <View style={styles.facilityCardContent}>
+        <Text style={[styles.facilityName, { color: theme.textPrimary }]} numberOfLines={1}>
+          {facility.name}
+        </Text>
+        <Text style={[styles.facilityAddress, { color: theme.textSecondary }]} numberOfLines={1}>
+          {facility.city ? `${facility.city}, ` : ''}
+          {facility.state || ''}
+        </Text>
+        <View style={styles.facilityMeta}>
+          {facility.avg_rating !== null && (
+            <Text style={[styles.facilityRating, { color: theme.warning }]}>
+              ⭐ {facility.avg_rating.toFixed(1)}
+            </Text>
+          )}
+          <Text style={[styles.facilityType, { color: theme.textDisabled }]}>
+            {facility.facility_type === 'both'
+              ? 'Shipper/Receiver'
+              : facility.facility_type.charAt(0).toUpperCase() + facility.facility_type.slice(1)}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
 
 export default function FacilitiesTab() {
   const theme = colors.dark;
+  const { user } = useAuth();
+  const [showLookup, setShowLookup] = useState(false);
+  const [showAddFacility, setShowAddFacility] = useState(false);
+
+  // Get recent facilities for quick access
+  const { data: recentFacilities, isLoading: isLoadingRecent } = useRecentFacilities(
+    user?.id || null,
+    10
+  );
+
+  const handleFacilitySelect = (facility: Facility) => {
+    console.log('Selected facility:', facility.id);
+    // Could navigate to facility detail or start tracking
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.textPrimary }]}>Facilities</Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Your saved locations
+          Check & save locations
         </Text>
       </View>
 
-      <Pressable
-        style={[styles.addButton, { backgroundColor: theme.primary }]}
-        onPress={() => console.log('Add facility')}
-      >
-        <Text style={styles.addButtonText}>+ Add Facility</Text>
-      </Pressable>
+      {/* Main Action Buttons */}
+      <View style={styles.actionButtons}>
+        <Pressable
+          style={[styles.primaryButton, { backgroundColor: theme.primary }]}
+          onPress={() => setShowLookup(true)}
+        >
+          <Text style={styles.primaryButtonIcon}>🔍</Text>
+          <View style={styles.buttonTextContainer}>
+            <Text style={styles.primaryButtonText}>Check Facility</Text>
+            <Text style={styles.primaryButtonSubtext}>
+              Look up before accepting a load
+            </Text>
+          </View>
+        </Pressable>
 
-      <ScrollView style={styles.list}>
-        <View style={[styles.emptyState, { backgroundColor: theme.card }]}>
-          <Text style={[styles.emptyIcon]}>🏢</Text>
-          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-            No facilities saved yet
-          </Text>
-          <Text style={[styles.emptyHint, { color: theme.textDisabled }]}>
-            Add a facility to start tracking
-          </Text>
+        <Pressable
+          style={[styles.secondaryButton, { borderColor: theme.primary }]}
+          onPress={() => setShowAddFacility(true)}
+        >
+          <Text style={styles.secondaryButtonText}>+ Add New Facility</Text>
+        </Pressable>
+      </View>
+
+      {/* Quick Search */}
+      <View style={styles.searchSection}>
+        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Quick Search</Text>
+        <FacilitySearch
+          onSelect={handleFacilitySelect}
+          userId={user?.id}
+          placeholder="Search facilities..."
+        />
+      </View>
+
+      {/* Recent Facilities */}
+      <View style={styles.listSection}>
+        <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+          Recently Visited
+        </Text>
+
+        <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+          {isLoadingRecent ? (
+            <View style={[styles.loadingState, { backgroundColor: theme.card }]}>
+              <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+                Loading recent facilities...
+              </Text>
+            </View>
+          ) : recentFacilities && recentFacilities.length > 0 ? (
+            <>
+              {recentFacilities.map((facility) => (
+                <SavedFacilityCard key={facility.id} facility={facility} />
+              ))}
+            </>
+          ) : (
+            <View style={[styles.emptyState, { backgroundColor: theme.card }]}>
+              <Text style={styles.emptyIcon}>🏢</Text>
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+                No recent facilities
+              </Text>
+              <Text style={[styles.emptyHint, { color: theme.textDisabled }]}>
+                Track detention at facilities to see them here
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+
+      {/* Facility Lookup Modal */}
+      <Modal
+        visible={showLookup}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowLookup(false)}
+      >
+        <FacilityLookup onClose={() => setShowLookup(false)} />
+      </Modal>
+
+      {/* Add Facility Modal (placeholder) */}
+      <Modal
+        visible={showAddFacility}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowAddFacility(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Add Facility</Text>
+            <Pressable onPress={() => setShowAddFacility(false)}>
+              <Text style={[styles.closeButton, { color: theme.textSecondary }]}>✕</Text>
+            </Pressable>
+          </View>
+          <View style={styles.modalContent}>
+            <Text style={[styles.comingSoonText, { color: theme.textSecondary }]}>
+              Add new facility form coming soon...
+            </Text>
+          </View>
         </View>
-      </ScrollView>
+      </Modal>
     </View>
   );
 }
@@ -56,19 +183,95 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 4,
   },
-  addButton: {
+  actionButtons: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  primaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+  },
+  primaryButtonIcon: {
+    fontSize: 32,
+  },
+  buttonTextContainer: {
+    flex: 1,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  primaryButtonSubtext: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  secondaryButton: {
     borderRadius: 12,
     padding: 14,
     alignItems: 'center',
-    marginBottom: 20,
+    borderWidth: 2,
   },
-  addButtonText: {
-    color: '#FFFFFF',
+  secondaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#6366F1',
+  },
+  searchSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  listSection: {
+    flex: 1,
   },
   list: {
     flex: 1,
+  },
+  facilityCard: {
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+  },
+  facilityCardContent: {
+    gap: 4,
+  },
+  facilityName: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  facilityAddress: {
+    fontSize: 13,
+  },
+  facilityMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 4,
+  },
+  facilityRating: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  facilityType: {
+    fontSize: 12,
+  },
+  loadingState: {
+    borderRadius: 16,
+    padding: 30,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
   },
   emptyState: {
     borderRadius: 16,
@@ -86,5 +289,33 @@ const styles = StyleSheet.create({
   },
   emptyHint: {
     fontSize: 14,
+    textAlign: 'center',
+  },
+  modalContainer: {
+    flex: 1,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 60,
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    fontSize: 24,
+    padding: 8,
+  },
+  modalContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  comingSoonText: {
+    fontSize: 16,
   },
 });

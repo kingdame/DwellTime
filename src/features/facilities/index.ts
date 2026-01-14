@@ -13,6 +13,7 @@ export {
   getRecentFacilities,
   searchFacilitiesWithFilters,
   getPopularFacilities,
+  getFacilityWithReviews,
   GEOFENCE_RADIUS_METERS,
   type FacilitySearchFilters,
   type FacilityCreateInput,
@@ -36,6 +37,9 @@ export {
   type GeofenceState,
   type GeofenceEvent,
 } from './hooks/useGeofencing';
+
+// Facility Lookup Hooks
+export { useFacilityWithReviews } from './hooks/useFacilityLookup';
 
 // Payment Stats Hooks
 export {
@@ -65,3 +69,5 @@ export { FacilitySearch } from './components/FacilitySearch';
 export { AddFacilityForm } from './components/AddFacilityForm';
 export { PaymentReliabilityCard, PaymentReliabilityBadge } from './components/PaymentReliabilityCard';
 export { PaymentFollowUpModal } from './components/PaymentFollowUpModal';
+export { FacilityPreviewCard } from './components/FacilityPreviewCard';
+export { FacilityLookup } from './components/FacilityLookup';
