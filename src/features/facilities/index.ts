@@ -37,6 +37,31 @@ export {
   type GeofenceEvent,
 } from './hooks/useGeofencing';
 
+// Payment Stats Hooks
+export {
+  useFacilityPaymentStats,
+  useFacilityReliability,
+  usePendingFollowUps,
+  useFollowUpHistory,
+  useRecordPaymentResponse,
+  useScheduleFollowUp,
+  useFacilitiesByPaymentRate,
+  usePendingFollowUpCount,
+} from './hooks/usePaymentStats';
+
+// Payment Stats Service
+export {
+  fetchFacilityPaymentStats,
+  getFacilityReliability,
+  fetchPendingFollowUps,
+  fetchAllFollowUps,
+  recordPaymentResponse,
+  autoScheduleFollowUp,
+  fetchFacilitiesByPaymentRate,
+} from './services/paymentStatsService';
+
 // Components
 export { FacilitySearch } from './components/FacilitySearch';
 export { AddFacilityForm } from './components/AddFacilityForm';
+export { PaymentReliabilityCard, PaymentReliabilityBadge } from './components/PaymentReliabilityCard';
+export { PaymentFollowUpModal } from './components/PaymentFollowUpModal';
