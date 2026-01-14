@@ -12,6 +12,9 @@ import {
   incrementContactUsage,
   searchEmailContacts,
   getFrequentContacts,
+  updateEmailContact,
+  fetchContactsByType,
+  getContactStats,
   type EmailContact,
   type EmailContactInput,
 } from '../services/emailService';
@@ -101,6 +104,49 @@ export function useIncrementContactUsage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CONTACTS_KEY });
     },
+  });
+}
+
+/**
+ * Hook to update an email contact
+ */
+export function useUpdateContact() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<Omit<EmailContactInput, 'user_id'>> }) =>
+      updateEmailContact(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CONTACTS_KEY });
+    },
+  });
+}
+
+/**
+ * Hook to fetch contacts by type
+ */
+export function useContactsByType(contactType: 'broker' | 'shipper' | 'dispatcher' | 'other' | null) {
+  const { user } = useAuthStore();
+
+  return useQuery({
+    queryKey: [...CONTACTS_KEY, 'byType', user?.id, contactType],
+    queryFn: () => fetchContactsByType(user!.id, contactType!),
+    enabled: !!user?.id && !!contactType,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+/**
+ * Hook to fetch contact statistics
+ */
+export function useContactStats() {
+  const { user } = useAuthStore();
+
+  return useQuery({
+    queryKey: [...CONTACTS_KEY, 'stats', user?.id],
+    queryFn: () => getContactStats(user!.id),
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 

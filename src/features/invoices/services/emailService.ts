@@ -215,3 +215,80 @@ export async function getFrequentContacts(
 
   return data || [];
 }
+
+/**
+ * Update an existing email contact
+ */
+export async function updateEmailContact(
+  contactId: string,
+  updates: Partial<Omit<EmailContactInput, 'user_id'>>
+): Promise<EmailContact> {
+  const { data, error } = await supabase
+    .from('email_contacts')
+    .update(updates)
+    .eq('id', contactId)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to update contact: ${error.message}`);
+  }
+
+  return data;
+}
+
+/**
+ * Fetch contacts by type
+ */
+export async function fetchContactsByType(
+  userId: string,
+  contactType: 'broker' | 'shipper' | 'dispatcher' | 'other'
+): Promise<EmailContact[]> {
+  const { data, error } = await supabase
+    .from('email_contacts')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('contact_type', contactType)
+    .order('use_count', { ascending: false });
+
+  if (error) {
+    throw new Error(`Failed to fetch contacts by type: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+/**
+ * Get contact statistics
+ */
+export async function getContactStats(userId: string): Promise<{
+  total: number;
+  byType: Record<string, number>;
+}> {
+  const { data, error } = await supabase
+    .from('email_contacts')
+    .select('contact_type')
+    .eq('user_id', userId);
+
+  if (error) {
+    throw new Error(`Failed to fetch contact stats: ${error.message}`);
+  }
+
+  const contacts = data || [];
+  const byType: Record<string, number> = {
+    broker: 0,
+    shipper: 0,
+    dispatcher: 0,
+    other: 0,
+  };
+
+  contacts.forEach((c) => {
+    const type = c.contact_type || 'other';
+    byType[type] = (byType[type] || 0) + 1;
+  });
+
+  return {
+    total: contacts.length,
+    byType,
+  };
+}

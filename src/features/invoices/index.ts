@@ -26,6 +26,9 @@ export {
   fetchInvoiceEmailHistory,
   searchEmailContacts,
   getFrequentContacts,
+  updateEmailContact,
+  fetchContactsByType,
+  getContactStats,
   type SendInvoiceEmailInput,
   type EmailContact,
   type EmailContactInput,
@@ -50,6 +53,9 @@ export {
   useSaveContact,
   useDeleteContact,
   useIncrementContactUsage,
+  useUpdateContact,
+  useContactsByType,
+  useContactStats,
 } from './hooks/useEmailContacts';
 
 export {
@@ -64,3 +70,4 @@ export { CreateInvoiceModal } from './components/CreateInvoiceModal';
 export { SendInvoiceModal } from './components/SendInvoiceModal';
 export { ContactPicker, type Contact, type ContactType } from './components/ContactPicker';
 export { EmailPreview } from './components/EmailPreview';
+export { SavedContactsManager } from './components/SavedContactsManager';

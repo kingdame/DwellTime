@@ -21,6 +21,7 @@ import {
   InvoiceSummaryCard,
   CreateInvoiceModal,
   SendInvoiceModal,
+  SavedContactsManager,
   useInvoiceDetails,
   useUpdateInvoiceStatus,
   useShareInvoice,
@@ -260,6 +261,7 @@ export default function InvoicesTab() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
+  const [showContactsModal, setShowContactsModal] = useState(false);
   const [invoiceToSend, setInvoiceToSend] = useState<InvoiceWithDetails | null>(null);
 
   // Fetch completed events for invoice creation
@@ -332,6 +334,14 @@ export default function InvoicesTab() {
             </Text>
           </View>
           <View style={styles.headerButtons}>
+            <TouchableOpacity
+              style={[styles.recoveryButton, { backgroundColor: theme.card }]}
+              onPress={() => setShowContactsModal(true)}
+            >
+              <Text style={[styles.recoveryButtonText, { color: theme.primary }]}>
+                Contacts
+              </Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.recoveryButton, { backgroundColor: theme.card }]}
               onPress={() => router.push('/recovery')}
@@ -409,6 +419,16 @@ export default function InvoicesTab() {
             />
           </SafeAreaView>
         )}
+      </Modal>
+
+      {/* Saved Contacts Modal */}
+      <Modal
+        visible={showContactsModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowContactsModal(false)}
+      >
+        <SavedContactsManager onClose={() => setShowContactsModal(false)} />
       </Modal>
     </View>
   );
