@@ -29,6 +29,9 @@
       ],
       "@/assets/*": [
         "src/assets/*"
+      ],
+      "@/convex/*": [
+        "convex/*"
       ]
     }
   },

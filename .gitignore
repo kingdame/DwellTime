@@ -50,3 +50,6 @@ src-backup/
 
 # Supabase
 supabase/.temp/
+
+# Convex
+convex/_generated/
