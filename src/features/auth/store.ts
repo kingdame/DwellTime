@@ -1,47 +1,40 @@
 /**
  * Auth Store - Authentication state management
+ * Works alongside Clerk for additional app-level auth state
  */
 
 import { create } from 'zustand';
 
 interface AuthState {
-  session: any | null;
-  user: any | null;
+  // User profile from our database (separate from Clerk user)
+  userProfile: {
+    id: string;
+    email: string;
+    name?: string;
+    companyName?: string;
+    subscriptionTier: string;
+  } | null;
   isLoading: boolean;
-  isAuthenticated: boolean;
-  setSession: (session: any | null) => void;
-  setUser: (user: any | null) => void;
+  
+  // Actions
+  setUserProfile: (profile: AuthState['userProfile']) => void;
   setLoading: (loading: boolean) => void;
-  refreshSession: () => Promise<void>;
-  signOut: () => Promise<void>;
+  clearUserProfile: () => void;
 }
 
+/**
+ * Auth store for app-level user state
+ * Note: Primary auth is handled by Clerk. This store is for:
+ * - Caching user profile data from our database
+ * - Managing loading states during profile fetches
+ */
 export const useAuthStore = create<AuthState>((set) => ({
-  session: null,
-  user: null,
+  userProfile: null,
   isLoading: false,
-  isAuthenticated: false,
 
-  setSession: (session) =>
-    set({
-      session,
-      isAuthenticated: !!session,
-    }),
-
-  setUser: (user) => set({ user }),
-
+  setUserProfile: (userProfile) => set({ userProfile }),
+  
   setLoading: (isLoading) => set({ isLoading }),
 
-  refreshSession: async () => {
-    // Placeholder - implement with supabase
-    set({ isLoading: false });
-  },
-
-  signOut: async () => {
-    set({
-      session: null,
-      user: null,
-      isAuthenticated: false,
-    });
-  },
+  clearUserProfile: () => set({ userProfile: null }),
 }));

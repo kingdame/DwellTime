@@ -1,9 +1,11 @@
 /**
  * Tab Navigation Layout
+ * Protected with Clerk authentication
  */
 
-import { Tabs } from 'expo-router';
-import { Text, StyleSheet } from 'react-native';
+import { Tabs, Redirect } from 'expo-router';
+import { Text, StyleSheet, View, ActivityIndicator } from 'react-native';
+import { useAuth } from '@clerk/clerk-expo';
 import { colors } from '../../src/constants/colors';
 import { useIsFleetAdmin } from '../../src/features/fleet';
 
@@ -27,7 +29,22 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
 
 export default function TabLayout() {
   const theme = colors.dark;
+  const { isSignedIn, isLoaded } = useAuth();
   const isFleetAdmin = useIsFleetAdmin();
+
+  // Show loading while Clerk initializes
+  if (!isLoaded) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+
+  // Redirect to sign in if not authenticated
+  if (!isSignedIn) {
+    return <Redirect href="/auth/sign-in" />;
+  }
 
   return (
     <Tabs
@@ -97,6 +114,11 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   icon: {
     fontSize: 20,
     opacity: 0.6,

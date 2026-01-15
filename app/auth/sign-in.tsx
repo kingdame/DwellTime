@@ -1,8 +1,9 @@
 /**
  * Sign In Screen
+ * Uses Clerk for authentication
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,19 +14,29 @@ import {
   Platform,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
+import { useSignIn, useAuth } from '@clerk/clerk-expo';
 import { colors } from '../../src/constants/colors';
-import { supabase } from '../../src/shared/lib/supabase';
 
 export default function SignIn() {
   const router = useRouter();
   const theme = colors.dark;
+  const { signIn, setActive, isLoaded } = useSignIn();
+  const { isSignedIn } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSignIn = async () => {
+  // Redirect if already signed in
+  if (isSignedIn) {
+    router.replace('/(tabs)');
+    return null;
+  }
+
+  const handleSignIn = useCallback(async () => {
+    if (!isLoaded) return;
+
     if (!email || !password) {
       setError('Please fill in all fields');
       return;
@@ -35,19 +46,27 @@ export default function SignIn() {
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
+      const result = await signIn.create({
+        identifier: email,
         password,
       });
 
-      if (error) throw error;
-      router.replace('/(tabs)');
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId });
+        router.replace('/(tabs)');
+      } else {
+        // Handle other statuses (e.g., needs_second_factor)
+        console.log('Sign in status:', result.status);
+        setError('Additional verification required');
+      }
     } catch (err: any) {
-      setError(err.message || 'Failed to sign in');
+      console.error('Sign in error:', err);
+      const errorMessage = err.errors?.[0]?.message || err.message || 'Failed to sign in';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, [isLoaded, email, password, signIn, setActive, router]);
 
   return (
     <KeyboardAvoidingView

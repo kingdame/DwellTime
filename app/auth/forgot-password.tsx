@@ -1,8 +1,9 @@
 /**
  * Forgot Password Screen
+ * Uses Clerk for password reset
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,18 +14,26 @@ import {
   Platform,
 } from 'react-native';
 import { Link } from 'expo-router';
+import { useSignIn } from '@clerk/clerk-expo';
 import { colors } from '../../src/constants/colors';
-import { supabase } from '../../src/shared/lib/supabase';
 
 export default function ForgotPassword() {
   const theme = colors.dark;
+  const { signIn, isLoaded } = useSignIn();
 
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  
+  // Password reset flow state
+  const [pendingReset, setPendingReset] = useState(false);
+  const [code, setCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
 
-  const handleResetPassword = async () => {
+  const handleResetPassword = useCallback(async () => {
+    if (!isLoaded) return;
+
     if (!email) {
       setError('Please enter your email');
       return;
@@ -34,37 +43,171 @@ export default function ForgotPassword() {
     setError(null);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
-      if (error) throw error;
-      setSuccess(true);
+      // Start the password reset flow
+      await signIn.create({
+        strategy: 'reset_password_email_code',
+        identifier: email,
+      });
+      
+      setPendingReset(true);
     } catch (err: any) {
-      setError(err.message || 'Failed to send reset email');
+      console.error('Password reset error:', err);
+      const errorMessage = err.errors?.[0]?.message || err.message || 'Failed to send reset email';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, [isLoaded, email, signIn]);
+
+  const handleVerifyAndReset = useCallback(async () => {
+    if (!isLoaded || !code || !newPassword) return;
+
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await signIn.attemptFirstFactor({
+        strategy: 'reset_password_email_code',
+        code,
+        password: newPassword,
+      });
+
+      if (result.status === 'complete') {
+        setSuccess(true);
+      } else {
+        setError('Password reset incomplete. Please try again.');
+      }
+    } catch (err: any) {
+      console.error('Verification error:', err);
+      const errorMessage = err.errors?.[0]?.message || err.message || 'Verification failed';
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [isLoaded, code, newPassword, signIn]);
 
   if (success) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.content}>
           <View style={styles.successBox}>
-            <Text style={styles.successIcon}>✉️</Text>
+            <Text style={styles.successIcon}>✅</Text>
             <Text style={[styles.successTitle, { color: theme.textPrimary }]}>
-              Check your email
+              Password Reset!
             </Text>
             <Text style={[styles.successText, { color: theme.textSecondary }]}>
-              We've sent a password reset link to {email}
+              Your password has been successfully reset. You can now sign in.
             </Text>
           </View>
 
           <Link href="/auth/sign-in" asChild>
             <Pressable style={[styles.button, { backgroundColor: theme.primary }]}>
-              <Text style={styles.buttonText}>Back to Sign In</Text>
+              <Text style={styles.buttonText}>Sign In</Text>
             </Pressable>
           </Link>
         </View>
       </View>
+    );
+  }
+
+  // Enter new password screen
+  if (pendingReset) {
+    return (
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={[styles.container, { backgroundColor: theme.background }]}
+      >
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <Text style={[styles.title, { color: theme.primary }]}>Enter Code</Text>
+            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+              We sent a reset code to {email}
+            </Text>
+          </View>
+
+          {error && (
+            <View style={[styles.errorBox, { backgroundColor: theme.error + '20' }]}>
+              <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
+            </View>
+          )}
+
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>
+                Reset Code
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.card,
+                    color: theme.textPrimary,
+                    borderColor: theme.divider,
+                    textAlign: 'center',
+                    fontSize: 24,
+                    letterSpacing: 8,
+                  },
+                ]}
+                placeholder="000000"
+                placeholderTextColor={theme.textDisabled}
+                value={code}
+                onChangeText={setCode}
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>
+                New Password
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.card,
+                    color: theme.textPrimary,
+                    borderColor: theme.divider,
+                  },
+                ]}
+                placeholder="Enter new password (min 8 chars)"
+                placeholderTextColor={theme.textDisabled}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry
+              />
+            </View>
+
+            <Pressable
+              style={[
+                styles.button,
+                { backgroundColor: theme.primary },
+                loading && styles.buttonDisabled,
+              ]}
+              onPress={handleVerifyAndReset}
+              disabled={loading || code.length < 6 || newPassword.length < 8}
+            >
+              <Text style={styles.buttonText}>
+                {loading ? 'Resetting...' : 'Reset Password'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.linkButton}
+              onPress={() => setPendingReset(false)}
+            >
+              <Text style={[styles.linkText, { color: theme.primary }]}>
+                Go back
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
     );
   }
 
@@ -77,7 +220,7 @@ export default function ForgotPassword() {
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.primary }]}>Reset Password</Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-            Enter your email to receive a reset link
+            Enter your email to receive a reset code
           </Text>
         </View>
 
@@ -118,7 +261,7 @@ export default function ForgotPassword() {
             disabled={loading}
           >
             <Text style={styles.buttonText}>
-              {loading ? 'Sending...' : 'Send Reset Link'}
+              {loading ? 'Sending...' : 'Send Reset Code'}
             </Text>
           </Pressable>
         </View>
@@ -214,6 +357,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
+  },
+  linkButton: {
+    alignItems: 'center',
+    padding: 8,
+  },
+  linkText: {
+    fontSize: 14,
   },
   footer: {
     alignItems: 'center',

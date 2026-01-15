@@ -1,8 +1,9 @@
 /**
  * Sign Up Screen
+ * Uses Clerk for authentication with email verification
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,12 +15,14 @@ import {
   ScrollView,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
+import { useSignUp, useAuth } from '@clerk/clerk-expo';
 import { colors } from '../../src/constants/colors';
-import { supabase } from '../../src/shared/lib/supabase';
 
 export default function SignUp() {
   const router = useRouter();
   const theme = colors.dark;
+  const { signUp, setActive, isLoaded } = useSignUp();
+  const { isSignedIn } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,8 +30,20 @@ export default function SignUp() {
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Email verification state
+  const [pendingVerification, setPendingVerification] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
 
-  const handleSignUp = async () => {
+  // Redirect if already signed in
+  if (isSignedIn) {
+    router.replace('/(tabs)');
+    return null;
+  }
+
+  const handleSignUp = useCallback(async () => {
+    if (!isLoaded) return;
+
     if (!email || !password || !confirmPassword || !fullName) {
       setError('Please fill in all fields');
       return;
@@ -39,8 +54,8 @@ export default function SignUp() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       return;
     }
 
@@ -48,24 +63,129 @@ export default function SignUp() {
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
+      // Create the sign up
+      await signUp.create({
+        emailAddress: email,
         password,
-        options: {
-          data: {
-            full_name: fullName,
-          },
-        },
+        firstName: fullName.split(' ')[0],
+        lastName: fullName.split(' ').slice(1).join(' ') || undefined,
       });
 
-      if (error) throw error;
-      router.replace('/(tabs)');
+      // Send email verification code
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      
+      // Show verification input
+      setPendingVerification(true);
     } catch (err: any) {
-      setError(err.message || 'Failed to sign up');
+      console.error('Sign up error:', err);
+      const errorMessage = err.errors?.[0]?.message || err.message || 'Failed to sign up';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, [isLoaded, email, password, confirmPassword, fullName, signUp]);
+
+  const handleVerification = useCallback(async () => {
+    if (!isLoaded || !verificationCode) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await signUp.attemptEmailAddressVerification({
+        code: verificationCode,
+      });
+
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId });
+        router.replace('/(tabs)');
+      } else {
+        console.log('Verification status:', result.status);
+        setError('Verification incomplete. Please try again.');
+      }
+    } catch (err: any) {
+      console.error('Verification error:', err);
+      const errorMessage = err.errors?.[0]?.message || err.message || 'Verification failed';
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [isLoaded, verificationCode, signUp, setActive, router]);
+
+  // Verification code input screen
+  if (pendingVerification) {
+    return (
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={[styles.container, { backgroundColor: theme.background }]}
+      >
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <Text style={[styles.title, { color: theme.primary }]}>Verify Email</Text>
+            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+              We sent a verification code to {email}
+            </Text>
+          </View>
+
+          {error && (
+            <View style={[styles.errorBox, { backgroundColor: theme.error + '20' }]}>
+              <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
+            </View>
+          )}
+
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>
+                Verification Code
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.card,
+                    color: theme.textPrimary,
+                    borderColor: theme.divider,
+                    textAlign: 'center',
+                    fontSize: 24,
+                    letterSpacing: 8,
+                  },
+                ]}
+                placeholder="000000"
+                placeholderTextColor={theme.textDisabled}
+                value={verificationCode}
+                onChangeText={setVerificationCode}
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+            </View>
+
+            <Pressable
+              style={[
+                styles.button,
+                { backgroundColor: theme.primary },
+                loading && styles.buttonDisabled,
+              ]}
+              onPress={handleVerification}
+              disabled={loading || verificationCode.length < 6}
+            >
+              <Text style={styles.buttonText}>
+                {loading ? 'Verifying...' : 'Verify Email'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.linkButton}
+              onPress={() => setPendingVerification(false)}
+            >
+              <Text style={[styles.linkText, { color: theme.primary }]}>
+                Go back
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -141,7 +261,7 @@ export default function SignUp() {
                     borderColor: theme.divider,
                   },
                 ]}
-                placeholder="Create a password"
+                placeholder="Create a password (min 8 chars)"
                 placeholderTextColor={theme.textDisabled}
                 value={password}
                 onChangeText={setPassword}
@@ -226,6 +346,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
+    textAlign: 'center',
   },
   errorBox: {
     borderRadius: 8,
@@ -265,6 +386,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
+  },
+  linkButton: {
+    alignItems: 'center',
+    padding: 8,
+  },
+  linkText: {
+    fontSize: 14,
   },
   footer: {
     flexDirection: 'row',
