@@ -17,9 +17,8 @@
 export default {
   providers: [
     {
-      // Replace with your actual Clerk domain from Clerk Dashboard
-      // Format: https://<your-clerk-subdomain>.clerk.accounts.dev
-      domain: process.env.CLERK_ISSUER_URL || "https://clerk.dwelltime.app",
+      // Clerk issuer domain from your publishable key
+      domain: "https://stirred-terrier-81.clerk.accounts.dev",
       
       // This should match the JWT template name in Clerk
       applicationID: "convex",
