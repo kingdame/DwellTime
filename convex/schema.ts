@@ -26,6 +26,9 @@ export default defineSchema({
    * Migrated from: auth.users + users table
    */
   users: defineTable({
+    // Clerk authentication - links this user to their Clerk identity
+    clerkId: v.string(),
+
     // Auth fields
     email: v.string(),
     name: v.optional(v.string()),
@@ -66,6 +69,7 @@ export default defineSchema({
     currentFleetId: v.optional(v.id("fleets")),
     fleetRole: v.optional(v.union(v.literal("admin"), v.literal("driver"))),
   })
+    .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"])
     .index("by_stripe_customer", ["stripeCustomerId"])
     .index("by_fleet", ["currentFleetId"]),

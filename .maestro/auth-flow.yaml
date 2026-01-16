@@ -1,0 +1,37 @@
+# Maestro E2E Test: Authentication Flow
+# Run with: maestro test .maestro/auth-flow.yaml
+
+appId: com.dwelltime.app
+
+---
+
+# Test Sign-In Flow
+- launchApp
+- assertVisible: "DwellTime"
+- assertVisible: "Sign in to your account"
+
+# Verify sign-in form elements
+- assertVisible: "Email"
+- assertVisible: "Password"
+- assertVisible: "Sign In"
+- assertVisible: "Forgot password?"
+- assertVisible: "Sign up"
+
+# Test navigation to sign-up
+- tapOn: "Sign up"
+- assertVisible: "Create your account"
+- assertVisible: "Full Name"
+- assertVisible: "Confirm Password"
+
+# Go back to sign-in
+- tapOn: "Sign in"
+- assertVisible: "Sign in to your account"
+
+# Test navigation to forgot password
+- tapOn: "Forgot password?"
+- assertVisible: "Reset Password"
+- assertVisible: "Enter your email to receive a reset code"
+
+# Go back
+- tapOn: "← Back to Sign In"
+- assertVisible: "Sign in to your account"

@@ -1,0 +1,38 @@
+# Maestro E2E Test: Tab Navigation (Authenticated User)
+# Run with: maestro test .maestro/tab-navigation.yaml
+# Prerequisites: User must be logged in
+
+appId: com.dwelltime.app
+
+---
+
+# Launch app (assuming already logged in)
+- launchApp
+
+# Test Home Tab
+- assertVisible:
+    text: "Home"
+- tapOn: "Home"
+
+# Test Facilities Tab
+- tapOn: "Facilities"
+- assertVisible:
+    text: "Facilities"
+
+# Test History Tab
+- tapOn: "History"
+- assertVisible:
+    text: "History"
+
+# Test Invoices Tab
+- tapOn: "Invoices"
+- assertVisible:
+    text: "Invoices"
+
+# Test Profile Tab
+- tapOn: "Profile"
+- assertVisible:
+    text: "Profile"
+
+# Navigate back to Home
+- tapOn: "Home"

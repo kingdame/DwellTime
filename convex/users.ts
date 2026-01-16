@@ -22,6 +22,21 @@ export const get = query({
 });
 
 /**
+ * Get user by Clerk ID - Primary lookup for authenticated users
+ */
+export const getByClerkId = query({
+  args: {
+    clerkId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+  },
+});
+
+/**
  * Get user by email
  */
 export const getByEmail = query({
@@ -58,10 +73,11 @@ export const getByStripeCustomerId = query({
 // ============================================================================
 
 /**
- * Create a new user
+ * Create a new user with Clerk ID
  */
 export const create = mutation({
   args: {
+    clerkId: v.string(),
     email: v.string(),
     name: v.optional(v.string()),
     phone: v.optional(v.string()),
@@ -70,17 +86,28 @@ export const create = mutation({
     gracePeriodMinutes: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    // Check if user already exists
-    const existing = await ctx.db
+    // Check if user already exists by Clerk ID
+    const existingByClerkId = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (existingByClerkId) {
+      throw new Error("User with this Clerk ID already exists");
+    }
+
+    // Check if user already exists by email
+    const existingByEmail = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email))
       .first();
 
-    if (existing) {
+    if (existingByEmail) {
       throw new Error("User with this email already exists");
     }
 
     const userId = await ctx.db.insert("users", {
+      clerkId: args.clerkId,
       email: args.email,
       name: args.name,
       phone: args.phone,
@@ -91,6 +118,41 @@ export const create = mutation({
     });
 
     return userId;
+  },
+});
+
+/**
+ * Get or create user by Clerk ID
+ * Used during sign-in to ensure user profile exists
+ */
+export const getOrCreate = mutation({
+  args: {
+    clerkId: v.string(),
+    email: v.string(),
+    name: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Try to find existing user by Clerk ID
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (existing) {
+      return existing;
+    }
+
+    // Create new user
+    const userId = await ctx.db.insert("users", {
+      clerkId: args.clerkId,
+      email: args.email,
+      name: args.name,
+      hourlyRate: 75,
+      gracePeriodMinutes: 120,
+      subscriptionTier: "free",
+    });
+
+    return await ctx.db.get(userId);
   },
 });
 

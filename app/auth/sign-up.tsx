@@ -3,7 +3,7 @@
  * Uses Clerk for authentication with email verification
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -35,11 +35,12 @@ export default function SignUp() {
   const [pendingVerification, setPendingVerification] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
 
-  // Redirect if already signed in
-  if (isSignedIn) {
-    router.replace('/(tabs)');
-    return null;
-  }
+  // Redirect if already signed in - using useEffect to avoid hooks order issues
+  useEffect(() => {
+    if (isSignedIn) {
+      router.replace('/(tabs)');
+    }
+  }, [isSignedIn, router]);
 
   const handleSignUp = useCallback(async () => {
     if (!isLoaded) return;

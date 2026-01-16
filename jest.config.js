@@ -5,6 +5,19 @@ module.exports = {
     '<rootDir>/src/**/__tests__/**/*.test.ts',
     '<rootDir>/src/**/__tests__/**/*.test.tsx',
   ],
+  // Separate test suites
+  projects: [
+    {
+      displayName: 'unit',
+      testMatch: ['<rootDir>/src/features/**/__tests__/**/*.test.ts?(x)'],
+      testEnvironment: 'node',
+    },
+    {
+      displayName: 'e2e',
+      testMatch: ['<rootDir>/src/__tests__/e2e/**/*.test.ts'],
+      testEnvironment: 'node',
+    },
+  ],
   testPathIgnorePatterns: [
     '/node_modules/',
     '/src-backup/',
