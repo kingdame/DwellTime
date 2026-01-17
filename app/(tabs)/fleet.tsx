@@ -11,6 +11,7 @@ import {
   RefreshControl,
   ScrollView,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors } from '../../src/constants/colors';
@@ -21,10 +22,15 @@ import {
   useFleetSummary,
   FleetDashboard,
 } from '../../src/features/fleet';
+import { useCurrentUserId, useCurrentUser } from '../../src/features/auth';
 
 export default function FleetTab() {
   const theme = colors.dark;
   const router = useRouter();
+
+  // Get real user ID
+  const userId = useCurrentUserId();
+  const user = useCurrentUser();
 
   const currentFleet = useCurrentFleet();
   const isAdmin = useIsFleetAdmin();

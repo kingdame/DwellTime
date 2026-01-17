@@ -1,6 +1,7 @@
 /**
  * Detention Store
  * Manages active detention tracking state with persistence
+ * Uses Convex for data storage (migrated from Supabase)
  */
 
 import { create } from 'zustand';
@@ -8,7 +9,6 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { DetentionEvent, Facility, Photo } from '@/shared/types';
-import { supabase } from '@/shared/lib/supabase';
 import { config } from '@/constants';
 import {
   scheduleGracePeriodWarning,
@@ -93,6 +93,9 @@ export interface DetentionState {
   getDetentionSeconds: () => number;
   getCurrentEarnings: () => number;
   isInGracePeriod: () => boolean;
+  
+  // Convex integration
+  setConvexEventId: (id: string) => void;
 }
 
 // Generate 8-character alphanumeric verification code
@@ -133,99 +136,82 @@ export const useDetentionStore = create<DetentionState>()(
       isSyncing: false,
       lastSyncTime: null,
 
-      // Start tracking at a facility
+      /**
+       * Set Convex event ID after mutation succeeds
+       * Called from UI component that has access to Convex hooks
+       */
+      setConvexEventId: (id: string) => {
+        set((state) => ({
+          activeDetention: { ...state.activeDetention, id },
+        }));
+      },
+
+      /**
+       * Start tracking at a facility
+       * Note: The actual Convex mutation should be called from a component
+       * that has access to useMutation. This store handles local state.
+       */
       startTracking: async (facility, eventType, gracePeriodMinutes, hourlyRate, loadReference) => {
         const now = new Date().toISOString();
         const verificationCode = generateVerificationCode();
 
-        // Create detention event in Supabase
-        try {
-          const { data: session } = await supabase.auth.getSession();
-          if (!session?.session?.user) {
-            console.error('No authenticated user');
-            return null;
-          }
+        // Set local state immediately for offline support
+        set({
+          activeDetention: {
+            id: null, // Will be set by setConvexEventId after mutation
+            facilityId: facility.id,
+            facilityName: facility.name,
+            eventType,
+            loadReference: loadReference || null,
+            arrivalTime: now,
+            gracePeriodMinutes,
+            hourlyRate,
+            isTracking: true,
+            notes: null,
+            verificationCode,
+          },
+          lastGpsLogTime: now,
+        });
 
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data, error } = await (supabase as any)
-            .from('detention_events')
-            .insert({
-              user_id: session.session.user.id,
-              facility_id: facility.id,
-              event_type: eventType,
-              load_reference: loadReference || null,
-              arrival_time: now,
-              grace_period_minutes: gracePeriodMinutes,
-              hourly_rate: hourlyRate,
-              status: 'active',
-              verification_code: verificationCode,
-            })
-            .select()
-            .single();
+        // Log initial GPS point
+        get().logGpsPoint();
 
-          if (error) {
-            console.error('Failed to create detention event:', error);
-            return null;
-          }
+        // Schedule notifications
+        const arrivalDate = new Date(now);
+        const gracePeriodEndTime = new Date(
+          arrivalDate.getTime() + gracePeriodMinutes * 60 * 1000
+        );
 
-          set({
-            activeDetention: {
-              id: data?.id,
-              facilityId: facility.id,
-              facilityName: facility.name,
-              eventType,
-              loadReference: loadReference || null,
-              arrivalTime: now,
-              gracePeriodMinutes,
-              hourlyRate,
-              isTracking: true,
-              notes: null,
-              verificationCode,
-            },
-            lastGpsLogTime: now,
-          });
+        // Send arrival notification
+        sendArrivedAtFacilityNotification(facility.name).catch(console.error);
 
-          // Log initial GPS point
-          get().logGpsPoint();
+        // Schedule grace period warning (15 minutes before end)
+        scheduleGracePeriodWarning(
+          facility.name,
+          gracePeriodEndTime,
+          15 // warn 15 minutes before
+        ).catch(console.error);
 
-          // Schedule notifications
-          const arrivalDate = new Date(now);
-          const gracePeriodEndTime = new Date(
-            arrivalDate.getTime() + gracePeriodMinutes * 60 * 1000
-          );
+        // Schedule detention started notification
+        scheduleDetentionStartedNotification(
+          facility.name,
+          gracePeriodEndTime,
+          hourlyRate
+        ).catch(console.error);
 
-          // Send arrival notification
-          sendArrivedAtFacilityNotification(facility.name).catch(console.error);
-
-          // Schedule grace period warning (15 minutes before end)
-          scheduleGracePeriodWarning(
-            facility.name,
-            gracePeriodEndTime,
-            15 // warn 15 minutes before
-          ).catch(console.error);
-
-          // Schedule detention started notification
-          scheduleDetentionStartedNotification(
-            facility.name,
-            gracePeriodEndTime,
-            hourlyRate
-          ).catch(console.error);
-
-          return data?.id ?? null;
-        } catch (error) {
-          console.error('Error starting tracking:', error);
-          return null;
-        }
+        // Return verification code - actual ID comes from Convex
+        return verificationCode;
       },
 
-      // End tracking and finalize detention event
+      /**
+       * End tracking and finalize detention event
+       * The actual Convex mutation should be called from a component
+       */
       endTracking: async () => {
         const { activeDetention } = get();
-        if (!activeDetention.isTracking || !activeDetention.id) {
+        if (!activeDetention.isTracking) {
           return null;
         }
-
-        const now = new Date().toISOString();
 
         // Calculate final values
         const elapsedSeconds = get().getElapsedSeconds();
@@ -235,39 +221,18 @@ export const useDetentionStore = create<DetentionState>()(
         // Cancel all scheduled notifications
         cancelAllDetentionNotifications().catch(console.error);
 
-        try {
-          // Sync any pending GPS logs first
-          await get().syncPendingUploads();
+        // Create a result object to return
+        const result: Partial<DetentionEvent> = {
+          id: activeDetention.id || undefined,
+          totalElapsedMinutes: Math.floor(elapsedSeconds / 60),
+          detentionMinutes: Math.floor(detentionSeconds / 60),
+          totalAmount: earnings,
+        };
 
-          // Update detention event in Supabase
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data, error } = await (supabase as any)
-            .from('detention_events')
-            .update({
-              departure_time: now,
-              total_elapsed_minutes: Math.floor(elapsedSeconds / 60),
-              detention_minutes: Math.floor(detentionSeconds / 60),
-              detention_amount: earnings,
-              status: 'completed',
-              notes: activeDetention.notes,
-            })
-            .eq('id', activeDetention.id)
-            .select()
-            .single();
+        // Reset state
+        get().resetActiveDetention();
 
-          if (error) {
-            console.error('Failed to end detention event:', error);
-            return null;
-          }
-
-          // Reset state
-          get().resetActiveDetention();
-
-          return data as DetentionEvent;
-        } catch (error) {
-          console.error('Error ending tracking:', error);
-          return null;
-        }
+        return result as DetentionEvent;
       },
 
       // Update current location
@@ -303,42 +268,32 @@ export const useDetentionStore = create<DetentionState>()(
         }));
       },
 
-      // Sync pending uploads to Supabase
+      /**
+       * Sync pending uploads
+       * Note: Actual upload should be handled by component with Convex access
+       */
       syncPendingUploads: async () => {
-        const { activeDetention, pendingGpsLogs, isSyncing } = get();
-        if (isSyncing || pendingGpsLogs.length === 0) {
+        const { isSyncing } = get();
+        if (isSyncing) {
           return;
         }
 
         set({ isSyncing: true });
 
         try {
-          // Sync GPS logs
-          if (activeDetention.id && pendingGpsLogs.length > 0) {
-            const logsToInsert = pendingGpsLogs.map((log) => ({
-              event_id: activeDetention.id,
-              lat: log.lat,
-              lng: log.lng,
-              accuracy: log.accuracy,
-              recorded_at: log.timestamp,
-            }));
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { error } = await (supabase as any).from('gps_logs').insert(logsToInsert);
-
-            if (!error) {
-              set({ pendingGpsLogs: [] });
-            } else {
-              console.error('Failed to sync GPS logs:', error);
-            }
-          }
-
+          // Clear pending logs after they're synced via Convex
+          // The actual sync is done by the component calling Convex mutations
           set({ lastSyncTime: new Date().toISOString() });
         } catch (error) {
           console.error('Error syncing uploads:', error);
         } finally {
           set({ isSyncing: false });
         }
+      },
+
+      // Clear pending GPS logs after successful sync
+      clearPendingGpsLogs: () => {
+        set({ pendingGpsLogs: [] });
       },
 
       // Set detected facility from geofence

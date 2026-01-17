@@ -25,12 +25,12 @@ const CONTACTS_KEY = ['email-contacts'];
  * Hook to fetch all email contacts for current user
  */
 export function useEmailContacts() {
-  const { user } = useAuthStore();
+  const { userProfile } = useAuthStore();
 
   return useQuery({
-    queryKey: [...CONTACTS_KEY, user?.id],
-    queryFn: () => fetchEmailContacts(user!.id),
-    enabled: !!user?.id,
+    queryKey: [...CONTACTS_KEY, userProfile?.id],
+    queryFn: () => fetchEmailContacts(userProfile!.id),
+    enabled: !!userProfile?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -39,12 +39,12 @@ export function useEmailContacts() {
  * Hook to search email contacts
  */
 export function useSearchContacts(query: string) {
-  const { user } = useAuthStore();
+  const { userProfile } = useAuthStore();
 
   return useQuery({
-    queryKey: [...CONTACTS_KEY, 'search', user?.id, query],
-    queryFn: () => searchEmailContacts(user!.id, query),
-    enabled: !!user?.id && query.length >= 2,
+    queryKey: [...CONTACTS_KEY, 'search', userProfile?.id, query],
+    queryFn: () => searchEmailContacts(userProfile!.id, query),
+    enabled: !!userProfile?.id && query.length >= 2,
     staleTime: 30 * 1000, // 30 seconds
   });
 }
@@ -53,12 +53,12 @@ export function useSearchContacts(query: string) {
  * Hook to fetch frequently used contacts
  */
 export function useFrequentContacts(limit: number = 5) {
-  const { user } = useAuthStore();
+  const { userProfile } = useAuthStore();
 
   return useQuery({
-    queryKey: [...CONTACTS_KEY, 'frequent', user?.id, limit],
-    queryFn: () => getFrequentContacts(user!.id, limit),
-    enabled: !!user?.id,
+    queryKey: [...CONTACTS_KEY, 'frequent', userProfile?.id, limit],
+    queryFn: () => getFrequentContacts(userProfile!.id, limit),
+    enabled: !!userProfile?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -68,11 +68,11 @@ export function useFrequentContacts(limit: number = 5) {
  */
 export function useSaveContact() {
   const queryClient = useQueryClient();
-  const { user } = useAuthStore();
+  const { userProfile } = useAuthStore();
 
   return useMutation({
     mutationFn: (input: Omit<EmailContactInput, 'user_id'>) =>
-      saveEmailContact({ ...input, user_id: user!.id }),
+      saveEmailContact({ ...input, user_id: userProfile!.id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CONTACTS_KEY });
     },
@@ -126,12 +126,12 @@ export function useUpdateContact() {
  * Hook to fetch contacts by type
  */
 export function useContactsByType(contactType: 'broker' | 'shipper' | 'dispatcher' | 'other' | null) {
-  const { user } = useAuthStore();
+  const { userProfile } = useAuthStore();
 
   return useQuery({
-    queryKey: [...CONTACTS_KEY, 'byType', user?.id, contactType],
-    queryFn: () => fetchContactsByType(user!.id, contactType!),
-    enabled: !!user?.id && !!contactType,
+    queryKey: [...CONTACTS_KEY, 'byType', userProfile?.id, contactType],
+    queryFn: () => fetchContactsByType(userProfile!.id, contactType!),
+    enabled: !!userProfile?.id && !!contactType,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -140,12 +140,12 @@ export function useContactsByType(contactType: 'broker' | 'shipper' | 'dispatche
  * Hook to fetch contact statistics
  */
 export function useContactStats() {
-  const { user } = useAuthStore();
+  const { userProfile } = useAuthStore();
 
   return useQuery({
-    queryKey: [...CONTACTS_KEY, 'stats', user?.id],
-    queryFn: () => getContactStats(user!.id),
-    enabled: !!user?.id,
+    queryKey: [...CONTACTS_KEY, 'stats', userProfile?.id],
+    queryFn: () => getContactStats(userProfile!.id),
+    enabled: !!userProfile?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

@@ -12,6 +12,14 @@ import {
   PhotoGallerySummary,
   type PhotoMetadata,
 } from '../../src/features/evidence';
+import { useCurrentUserId } from '../../src/features/auth';
+import { 
+  useStartDetention, 
+  useEndDetention,
+  useActiveDetentionEvent,
+  useHistorySummary,
+} from '../../src/shared/hooks/convex';
+import type { Id } from '../../convex/_generated/dataModel';
 
 // Format milliseconds to HH:MM:SS
 function formatTime(ms: number): string {
@@ -27,12 +35,37 @@ function formatCurrency(amount: number): string {
   return `$${amount.toFixed(2)}`;
 }
 
+// Format total time in hours and minutes
+function formatTotalTime(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours}h ${mins}m`;
+}
+
 export default function HomeTab() {
   const theme = colors.dark;
   const store = useDetentionStore();
-  const { activeDetention, updateNotes } = store;
+  const { activeDetention, updateNotes, setConvexEventId } = store;
   const isTracking = activeDetention.isTracking;
   const facilityName = activeDetention.facilityName;
+
+  // Get real user ID from auth
+  const userId = useCurrentUserId() as Id<"users"> | undefined;
+
+  // Convex mutations for detention
+  const startDetention = useStartDetention();
+  const endDetention = useEndDetention();
+
+  // Get active event from Convex (real-time sync)
+  const activeEvent = useActiveDetentionEvent(userId);
+
+  // Get today's summary from Convex
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const summary = useHistorySummary(userId, {
+    startDate: todayStart.getTime(),
+    endDate: Date.now(),
+  });
 
   // Local state for photos (pending upload)
   const [photos, setPhotos] = useState<PhotoMetadata[]>([]);
@@ -122,7 +155,13 @@ export default function HomeTab() {
   }, [isTracking]);
 
   const handleStartTracking = async () => {
+    if (!userId) {
+      Alert.alert('Sign In Required', 'Please sign in to track detention time.');
+      return;
+    }
+
     // For demo, use a placeholder facility
+    // In production, this would come from facility detection or selection
     const demoFacility = {
       id: 'demo-facility',
       name: 'Demo Facility',
@@ -147,12 +186,51 @@ export default function HomeTab() {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    await store.startTracking(demoFacility, 'delivery', 120, 75);
+
+    try {
+      // Start local tracking first (for offline support)
+      const verificationCode = await store.startTracking(demoFacility, 'delivery', 120, 75);
+
+      // Create event in Convex
+      const eventId = await startDetention({
+        userId,
+        facilityName: demoFacility.name,
+        facilityAddress: demoFacility.address,
+        eventType: 'delivery',
+        gracePeriodMinutes: 120,
+        hourlyRate: 75,
+        verificationCode: verificationCode || undefined,
+      });
+
+      // Store the Convex event ID locally
+      if (eventId) {
+        setConvexEventId(eventId);
+      }
+    } catch (error) {
+      console.error('Failed to start detention:', error);
+      Alert.alert('Error', 'Failed to start detention tracking. Please try again.');
+    }
   };
 
   const handleStopTracking = async () => {
-    // TODO: Upload photos before ending
-    await store.endTracking();
+    try {
+      // Get final values from store
+      const result = await store.endTracking();
+
+      // End event in Convex
+      if (activeDetention.id) {
+        await endDetention({
+          id: activeDetention.id as Id<"detentionEvents">,
+          totalElapsedMinutes: result?.totalElapsedMinutes || 0,
+          detentionMinutes: result?.detentionMinutes || 0,
+          totalAmount: result?.totalAmount || 0,
+          notes: notes || undefined,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to end detention:', error);
+      Alert.alert('Error', 'Failed to end detention tracking. Please try again.');
+    }
   };
 
   return (
@@ -199,15 +277,21 @@ export default function HomeTab() {
         </Text>
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.success }]}>$0.00</Text>
+            <Text style={[styles.statValue, { color: theme.success }]}>
+              {formatCurrency(summary?.totalEarnings || 0)}
+            </Text>
             <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Earned</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.textPrimary }]}>0</Text>
+            <Text style={[styles.statValue, { color: theme.textPrimary }]}>
+              {summary?.totalEvents || 0}
+            </Text>
             <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Visits</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.textPrimary }]}>0h 0m</Text>
+            <Text style={[styles.statValue, { color: theme.textPrimary }]}>
+              {formatTotalTime(summary?.totalMinutes || 0)}
+            </Text>
             <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Total Time</Text>
           </View>
         </View>

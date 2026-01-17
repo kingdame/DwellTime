@@ -54,10 +54,9 @@ describe('Package Dependencies', () => {
     expect(packageJson.dependencies['expo-auth-session']).toBeDefined();
   });
 
-  test('Supabase should still be present (until migration complete)', () => {
-    // Note: Supabase is still in dependencies - this test documents current state
-    // After full migration, this test should be updated to expect undefined
-    expect(packageJson.dependencies['@supabase/supabase-js']).toBeDefined();
+  test('Supabase should be removed (migration complete)', () => {
+    // Migration completed Jan 16, 2026 - Supabase fully replaced by Convex+Clerk
+    expect(packageJson.dependencies['@supabase/supabase-js']).toBeUndefined();
   });
 });
 

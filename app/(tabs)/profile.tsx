@@ -3,7 +3,9 @@
  */
 
 import { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAuth, useClerk } from '@clerk/clerk-expo';
 import { colors } from '../../src/constants/colors';
 import {
   EditableSettingRow,
@@ -14,37 +16,90 @@ import {
   formatHourlyRate,
   useProfileCompletion,
 } from '../../src/features/profile';
-
-// Mock user ID for now (would come from auth context)
-const MOCK_USER_ID = 'demo-user-id';
-
-// Default user values for demo mode
-const DEFAULT_USER = {
-  id: MOCK_USER_ID,
-  name: 'Demo Driver',
-  email: 'demo@dwelltime.app',
-  phone: null,
-  company_name: null,
-  hourly_rate: 50,
-  grace_period_minutes: 120,
-  invoice_terms: null,
-  invoice_logo_url: null,
-  subscription_tier: 'free' as const,
-  stripe_customer_id: null,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-};
+import { useCurrentUserId, useCurrentUser } from '../../src/features/auth';
+import { useUser, useUpdateUser } from '../../src/shared/hooks/convex';
+import type { Id } from '../../convex/_generated/dataModel';
 
 export default function ProfileTab() {
   const theme = colors.dark;
+  const router = useRouter();
+  const { signOut } = useClerk();
+  const { isSignedIn } = useAuth();
 
-  // In production, this would come from auth store
-  const user = DEFAULT_USER; // Using demo user for now
+  // Get real user from Convex
+  const userId = useCurrentUserId() as Id<"users"> | undefined;
+  const convexUser = useUser(userId);
+  const updateUser = useUpdateUser();
 
   const [showDetentionModal, setShowDetentionModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
+  // Transform Convex user to expected format
+  const user = convexUser ? {
+    id: convexUser._id,
+    name: convexUser.name || null,
+    email: convexUser.email,
+    phone: convexUser.phone || null,
+    company_name: convexUser.companyName || null,
+    hourly_rate: convexUser.hourlyRate || 75,
+    grace_period_minutes: convexUser.gracePeriodMinutes || 120,
+    invoice_terms: convexUser.invoiceTerms || null,
+    invoice_logo_url: convexUser.invoiceLogoUrl || null,
+    subscription_tier: convexUser.subscriptionTier || 'free',
+  } : null;
+
   const { percentage } = useProfileCompletion(user);
+
+  // Handle sign out
+  const handleSignOut = useCallback(async () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            router.replace('/auth/sign-in');
+          },
+        },
+      ]
+    );
+  }, [signOut, router]);
+
+  // Show loading if user not loaded
+  if (convexUser === undefined) {
+    return (
+      <View style={[styles.container, styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+
+  // Show sign in prompt if not authenticated
+  if (!isSignedIn || !user) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: theme.textPrimary }]}>Profile</Text>
+        </View>
+        <View style={[styles.signInPrompt, { backgroundColor: theme.card }]}>
+          <Text style={styles.signInIcon}>👤</Text>
+          <Text style={[styles.signInText, { color: theme.textPrimary }]}>
+            Sign in to access your profile
+          </Text>
+          <Pressable
+            style={[styles.signInButton, { backgroundColor: theme.primary }]}
+            onPress={() => router.push('/auth/sign-in')}
+          >
+            <Text style={styles.signInButtonText}>Sign In</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   const handleExportData = useCallback(() => {
     Alert.alert(
@@ -173,6 +228,14 @@ export default function ProfileTab() {
           <Text style={[styles.menuArrow, { color: theme.textSecondary }]}>›</Text>
         </Pressable>
 
+        {/* Sign Out Button */}
+        <Pressable
+          style={[styles.signOutButton, { backgroundColor: theme.error + '20' }]}
+          onPress={handleSignOut}
+        >
+          <Text style={[styles.signOutText, { color: theme.error }]}>Sign Out</Text>
+        </Pressable>
+
         <Text style={[styles.version, { color: theme.textDisabled }]}>
           DwellTime v1.0.0
         </Text>
@@ -203,6 +266,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   header: {
     paddingHorizontal: 20,
     paddingTop: 60,
@@ -215,6 +282,31 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 20,
+  },
+  signInPrompt: {
+    margin: 20,
+    borderRadius: 16,
+    padding: 40,
+    alignItems: 'center',
+  },
+  signInIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  signInText: {
+    fontSize: 16,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  signInButton: {
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  signInButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   profileCard: {
     borderRadius: 16,
@@ -278,6 +370,16 @@ const styles = StyleSheet.create({
   },
   menuArrow: {
     fontSize: 20,
+  },
+  signOutButton: {
+    marginTop: 16,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  signOutText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   version: {
     textAlign: 'center',

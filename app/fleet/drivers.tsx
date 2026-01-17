@@ -21,14 +21,15 @@ import {
   InviteDriverModal,
   type DriverListItem,
 } from '../../src/features/fleet';
-import { useAuthStore } from '../../src/features/auth/store';
+import { useCurrentUserId, useCurrentUser } from '../../src/features/auth';
 
 export default function DriversScreen() {
   const theme = colors.dark;
   const router = useRouter();
 
   const currentFleet = useCurrentFleet();
-  const { user } = useAuthStore();
+  const userId = useCurrentUserId();
+  const user = useCurrentUser();
   const { data: membersData } = useFleetMembers(currentFleet?.id || null);
   const { isLoading, isRefreshing, setRefreshing } = useFleetStore();
   const createInvitation = useCreateInvitation();
@@ -69,11 +70,11 @@ export default function DriversScreen() {
 
   const handleInvite = useCallback(
     async (data: { email: string; phone?: string; role: 'admin' | 'driver' }) => {
-      if (!currentFleet || !user?.id) return;
+      if (!currentFleet || !userId) return;
 
       const result = await createInvitation.mutateAsync({
         fleetId: currentFleet.id,
-        invitedBy: user.id,
+        invitedBy: userId,
         input: {
           email: data.email,
           role: data.role,
@@ -82,7 +83,7 @@ export default function DriversScreen() {
 
       return { invitationCode: result?.invitation_code };
     },
-    [currentFleet, createInvitation, user]
+    [currentFleet, createInvitation, userId]
   );
 
   return (

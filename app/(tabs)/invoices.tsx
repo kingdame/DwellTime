@@ -30,11 +30,29 @@ import {
   type InvoiceWithDetails,
   type Contact,
 } from '../../src/features/invoices';
-import { useDetentionHistory, type DetentionRecord } from '../../src/features/history';
+import { useCurrentUserId, useCurrentUser } from '../../src/features/auth';
+import { useDetentionHistory } from '../../src/shared/hooks/convex';
 import type { Invoice } from '../../src/shared/types';
+import type { Id } from '../../convex/_generated/dataModel';
 
-// Mock user ID for now (would come from auth context)
-const MOCK_USER_ID = 'demo-user-id';
+// Type for detention records
+interface DetentionRecord {
+  id: string;
+  facilityName: string;
+  facilityAddress?: string;
+  eventType: 'pickup' | 'delivery';
+  loadReference?: string;
+  arrivalTime: string;
+  departureTime?: string;
+  totalElapsedMinutes: number;
+  gracePeriodMinutes: number;
+  detentionMinutes: number;
+  hourlyRate: number;
+  detentionAmount: number;
+  notes?: string;
+  verificationCode: string;
+  photoCount: number;
+}
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -258,15 +276,36 @@ function InvoiceDetailModal({
 export default function InvoicesTab() {
   const theme = colors.dark;
   const router = useRouter();
+  const userId = useCurrentUserId() as Id<"users"> | undefined;
+  const user = useCurrentUser();
+  
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showContactsModal, setShowContactsModal] = useState(false);
   const [invoiceToSend, setInvoiceToSend] = useState<InvoiceWithDetails | null>(null);
 
-  // Fetch completed events for invoice creation
-  const { data: historyData } = useDetentionHistory({ status: 'completed' }, 100, 0);
-  const availableEvents = (historyData || []) as DetentionRecord[];
+  // Fetch completed events for invoice creation using Convex
+  const historyData = useDetentionHistory(userId, { status: 'completed', limit: 100 });
+  
+  // Transform Convex data to DetentionRecord format
+  const availableEvents: DetentionRecord[] = (historyData || []).map((event) => ({
+    id: event._id,
+    facilityName: event.facilityName || 'Unknown Facility',
+    facilityAddress: event.facilityAddress,
+    eventType: event.eventType || 'delivery',
+    loadReference: event.loadReference,
+    arrivalTime: new Date(event.arrivalTime).toISOString(),
+    departureTime: event.departureTime ? new Date(event.departureTime).toISOString() : undefined,
+    totalElapsedMinutes: event.totalElapsedMinutes || 0,
+    gracePeriodMinutes: event.gracePeriodMinutes || 120,
+    detentionMinutes: event.detentionMinutes || 0,
+    hourlyRate: event.hourlyRate || 75,
+    detentionAmount: event.totalAmount || 0,
+    notes: event.notes,
+    verificationCode: event.verificationCode || '',
+    photoCount: event.photoCount || 0,
+  }));
 
   // Fetch frequent contacts for send modal
   const { data: frequentContacts } = useFrequentContacts(5);
@@ -362,11 +401,11 @@ export default function InvoicesTab() {
 
       {/* Summary Card */}
       <View style={styles.summaryContainer}>
-        <InvoiceSummaryCard userId={MOCK_USER_ID} />
+        <InvoiceSummaryCard userId={userId} />
       </View>
 
       {/* Invoice List */}
-      <InvoiceList userId={MOCK_USER_ID} onInvoicePress={handleInvoicePress} />
+      <InvoiceList userId={userId} onInvoicePress={handleInvoicePress} />
 
       {/* Detail Modal */}
       <Modal
@@ -394,7 +433,7 @@ export default function InvoicesTab() {
       >
         <SafeAreaView style={[styles.modalContainer, { backgroundColor: theme.background }]}>
           <CreateInvoiceModal
-            userId={MOCK_USER_ID}
+            userId={userId}
             availableEvents={availableEvents}
             onSuccess={handleCreateSuccess}
             onCancel={() => setShowCreateModal(false)}

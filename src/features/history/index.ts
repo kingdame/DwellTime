@@ -2,24 +2,21 @@
  * History Feature Exports
  */
 
-// Hooks
+// Convex Hooks (Primary - Real-time data)
 export {
   useDetentionHistory,
-  useDetentionDetail,
-  useMonthSummary,
-  useAllTimeSummary,
-  type DetentionRecord,
-  type HistorySummary,
-  type HistoryFilters,
-} from './hooks/useHistory';
+  useHistorySummary,
+  useMonthlySummary,
+  getDateRange,
+  formatDuration,
+} from './hooks/useHistoryConvex';
+
+// Legacy type exports (for backwards compatibility)
+export type { DetentionRecord } from './components/HistoryList';
 
 // Services
 export {
-  fetchDetentionHistory,
-  fetchDetentionDetail,
-  fetchHistorySummary,
   formatCurrency,
-  formatDuration,
   formatDate,
   formatTime,
   getStartOfMonth,

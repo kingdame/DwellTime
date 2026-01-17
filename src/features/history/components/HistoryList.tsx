@@ -3,7 +3,7 @@
  * Displays list of detention records with loading and empty states
  */
 
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -14,8 +14,29 @@ import {
 } from 'react-native';
 
 import { colors } from '@/constants/colors';
-import { useDetentionHistory, type DetentionRecord } from '../hooks/useHistory';
+import { useDetentionHistory as useDetentionHistoryConvex } from '@/shared/hooks/convex';
+import { useCurrentUserId } from '@/features/auth';
 import { HistoryCard } from './HistoryCard';
+import type { Id } from '@/convex/_generated/dataModel';
+
+// DetentionRecord type for this component
+export interface DetentionRecord {
+  id: string;
+  facilityName: string;
+  facilityAddress?: string;
+  eventType: 'pickup' | 'delivery';
+  loadReference?: string;
+  arrivalTime: string;
+  departureTime?: string;
+  totalElapsedMinutes: number;
+  gracePeriodMinutes: number;
+  detentionMinutes: number;
+  hourlyRate: number;
+  detentionAmount: number;
+  notes?: string;
+  verificationCode: string;
+  photoCount: number;
+}
 
 interface HistoryListProps {
   onRecordPress?: (record: DetentionRecord) => void;
@@ -23,9 +44,39 @@ interface HistoryListProps {
 
 export function HistoryList({ onRecordPress }: HistoryListProps) {
   const theme = colors.dark;
-  const { data, isLoading, isError, refetch, isRefetching } = useDetentionHistory();
+  const userId = useCurrentUserId() as Id<"users"> | undefined;
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Use Convex hook for real-time data
+  const data = useDetentionHistoryConvex(userId, { limit: 100 });
+  const isLoading = data === undefined;
+  const isError = false; // Convex handles errors differently
 
-  const records = data?.records || [];
+  // Transform Convex data to DetentionRecord format
+  const records: DetentionRecord[] = (data || []).map((event) => ({
+    id: event._id,
+    facilityName: event.facilityName || 'Unknown Facility',
+    facilityAddress: event.facilityAddress,
+    eventType: event.eventType || 'delivery',
+    loadReference: event.loadReference,
+    arrivalTime: new Date(event.arrivalTime).toISOString(),
+    departureTime: event.departureTime ? new Date(event.departureTime).toISOString() : undefined,
+    totalElapsedMinutes: event.totalElapsedMinutes || 0,
+    gracePeriodMinutes: event.gracePeriodMinutes || 120,
+    detentionMinutes: event.detentionMinutes || 0,
+    hourlyRate: event.hourlyRate || 75,
+    detentionAmount: event.totalAmount || 0,
+    notes: event.notes,
+    verificationCode: event.verificationCode || '',
+    photoCount: event.photoCount || 0,
+  }));
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    // Convex data is real-time, but we can trigger a visual refresh
+    await new Promise(resolve => setTimeout(resolve, 500));
+    setIsRefreshing(false);
+  }, []);
 
   if (isLoading) {
     return (
@@ -78,8 +129,8 @@ export function HistoryList({ onRecordPress }: HistoryListProps) {
       )}
       refreshControl={
         <RefreshControl
-          refreshing={isRefetching}
-          onRefresh={refetch}
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
           tintColor={theme.primary}
           colors={[theme.primary]}
         />

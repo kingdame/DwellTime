@@ -8,8 +8,6 @@ import { colors } from '../../src/constants/colors';
 import {
   HistoryList,
   HistorySummaryCard,
-  useMonthSummary,
-  type DetentionRecord,
   formatCurrency,
   formatDuration,
   formatDate,
@@ -17,10 +15,42 @@ import {
   shareRecordAsPdf,
   shareRecordAsText,
 } from '../../src/features/history';
+import { useCurrentUserId } from '../../src/features/auth';
+import { useHistorySummary } from '../../src/shared/hooks/convex';
+import type { Id } from '../../convex/_generated/dataModel';
+
+// Type for detention record in this component
+interface DetentionRecord {
+  id: string;
+  facilityName: string;
+  facilityAddress?: string;
+  eventType: 'pickup' | 'delivery';
+  loadReference?: string;
+  arrivalTime: string;
+  departureTime?: string;
+  totalElapsedMinutes: number;
+  gracePeriodMinutes: number;
+  detentionMinutes: number;
+  hourlyRate: number;
+  detentionAmount: number;
+  notes?: string;
+  verificationCode: string;
+  photoCount: number;
+}
 
 export default function HistoryTab() {
   const theme = colors.dark;
-  const { data: summary } = useMonthSummary();
+  const userId = useCurrentUserId() as Id<"users"> | undefined;
+  
+  // Get this month's summary from Convex
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const summary = useHistorySummary(userId, {
+    startDate: monthStart.getTime(),
+    endDate: Date.now(),
+  });
+  
   const [selectedRecord, setSelectedRecord] = useState<DetentionRecord | null>(null);
   const [isSharing, setIsSharing] = useState(false);
 
@@ -67,8 +97,8 @@ export default function HistoryTab() {
 
       {/* Summary Card */}
       <HistorySummaryCard
-        totalEarnings={summary?.totalEarnings || 0}
-        totalSessions={summary?.totalSessions || 0}
+        totalEarnings={summary?.totalEarnings ?? 0}
+        totalSessions={summary?.totalEvents ?? 0}
         label="This Month"
       />
 

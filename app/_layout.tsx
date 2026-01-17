@@ -12,6 +12,16 @@ import { View } from 'react-native';
 import { colors } from '../src/constants/colors';
 import { convex } from '../src/shared/lib/convex';
 import { tokenCache, clerkPublishableKey } from '../src/shared/lib/clerk';
+import { useAuthSync } from '../src/features/auth';
+
+/**
+ * Auth sync component - syncs Clerk user to Convex
+ */
+function AuthSyncProvider({ children }: { children: React.ReactNode }) {
+  // This hook syncs Clerk auth state with Convex user database
+  useAuthSync();
+  return <>{children}</>;
+}
 
 /**
  * Main app content wrapped with providers
@@ -20,22 +30,25 @@ function AppContent() {
   const theme = colors.dark;
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.background }}>
-      <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: theme.background },
-          animation: 'slide_from_right',
-        }}
-      >
+    <AuthSyncProvider>
+      <View style={{ flex: 1, backgroundColor: theme.background }}>
+        <StatusBar style="light" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: theme.background },
+            animation: 'slide_from_right',
+          }}
+        >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="auth" options={{ headerShown: false }} />
         <Stack.Screen name="fleet" options={{ headerShown: false }} />
         <Stack.Screen name="recovery" options={{ headerShown: false }} />
-      </Stack>
-    </View>
+        <Stack.Screen name="invoice" options={{ headerShown: false }} />
+        </Stack>
+      </View>
+    </AuthSyncProvider>
   );
 }
 

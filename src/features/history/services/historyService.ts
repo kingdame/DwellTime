@@ -1,9 +1,11 @@
 /**
  * History Service
- * Fetches and manages detention history from Supabase
+ * Formatting and utility functions for detention history
+ *
+ * NOTE: Data operations now use Convex. Use the hooks from @/shared/hooks/convex:
+ * - useQuery(api.detentionEvents.list, { userId }) - Get history
+ * - useQuery(api.history.getSummary, { userId }) - Get summary stats
  */
-
-import { supabase } from '@/shared/lib/supabase';
 
 export interface DetentionRecord {
   id: string;
@@ -12,18 +14,17 @@ export interface DetentionRecord {
   facilityAddress: string | null;
   eventType: 'pickup' | 'delivery';
   loadReference: string | null;
-  arrivalTime: string;
-  departureTime: string | null;
+  arrivalTime: number; // Unix timestamp
+  departureTime: number | null;
   gracePeriodMinutes: number;
   hourlyRate: number;
   totalElapsedMinutes: number;
   detentionMinutes: number;
-  detentionAmount: number;
-  status: 'active' | 'completed' | 'cancelled';
+  totalAmount: number;
+  status: 'active' | 'completed' | 'invoiced' | 'paid';
   notes: string | null;
-  verificationCode: string;
-  photoCount: number;
-  createdAt: string;
+  verificationCode?: string;
+  photoCount?: number;
 }
 
 export interface HistorySummary {
@@ -34,278 +35,63 @@ export interface HistorySummary {
 }
 
 export interface HistoryFilters {
-  startDate?: string;
-  endDate?: string;
+  startDate?: number; // Unix timestamp
+  endDate?: number;
   facilityId?: string;
   eventType?: 'pickup' | 'delivery';
-  status?: 'active' | 'completed' | 'cancelled';
+  status?: 'active' | 'completed' | 'invoiced' | 'paid';
 }
 
 /**
- * Fetch detention history for the current user
+ * Calculate history summary from an array of detention records
+ * Use this with data from Convex queries
  */
-export async function fetchDetentionHistory(
-  filters?: HistoryFilters,
-  limit: number = 50,
-  offset: number = 0
-): Promise<{ records: DetentionRecord[]; total: number }> {
-  try {
-    const { data: session } = await supabase.auth.getSession();
-    if (!session?.session?.user) {
-      return { records: [], total: 0 };
-    }
+export function calculateHistorySummary(records: DetentionRecord[]): HistorySummary {
+  const completedRecords = records.filter(r => r.status === 'completed' || r.status === 'invoiced' || r.status === 'paid');
+  
+  const totalEarnings = completedRecords.reduce((sum, r) => sum + (r.totalAmount || 0), 0);
+  const totalDetentionMinutes = completedRecords.reduce((sum, r) => sum + (r.detentionMinutes || 0), 0);
+  const totalElapsedMinutes = completedRecords.reduce((sum, r) => sum + (r.totalElapsedMinutes || 0), 0);
 
-    // Build query - using any to bypass type issues with generated types
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query = (supabase as any)
-      .from('detention_events')
-      .select(`
-        id,
-        facility_id,
-        event_type,
-        load_reference,
-        arrival_time,
-        departure_time,
-        grace_period_minutes,
-        hourly_rate,
-        total_elapsed_minutes,
-        detention_minutes,
-        detention_amount,
-        status,
-        notes,
-        verification_code,
-        created_at,
-        facilities (
-          name,
-          address
-        ),
-        photos (count)
-      `, { count: 'exact' })
-      .eq('user_id', session.session.user.id)
-      .order('arrival_time', { ascending: false });
-
-    // Apply filters
-    if (filters?.startDate) {
-      query = query.gte('arrival_time', filters.startDate);
-    }
-    if (filters?.endDate) {
-      query = query.lte('arrival_time', filters.endDate);
-    }
-    if (filters?.facilityId) {
-      query = query.eq('facility_id', filters.facilityId);
-    }
-    if (filters?.eventType) {
-      query = query.eq('event_type', filters.eventType);
-    }
-    if (filters?.status) {
-      query = query.eq('status', filters.status);
-    }
-
-    // Pagination
-    query = query.range(offset, offset + limit - 1);
-
-    const { data, error, count } = await query;
-
-    if (error) {
-      console.error('Failed to fetch detention history:', error);
-      return { records: [], total: 0 };
-    }
-
-    // Transform data
-    const records: DetentionRecord[] = (data || []).map((record: {
-      id: string;
-      facility_id: string;
-      event_type: 'pickup' | 'delivery';
-      load_reference: string | null;
-      arrival_time: string;
-      departure_time: string | null;
-      grace_period_minutes: number;
-      hourly_rate: number;
-      total_elapsed_minutes: number;
-      detention_minutes: number;
-      detention_amount: number;
-      status: 'active' | 'completed' | 'cancelled';
-      notes: string | null;
-      verification_code: string;
-      created_at: string;
-      facilities: { name: string; address: string | null } | null;
-      photos: { count: number }[] | null;
-    }) => ({
-      id: record.id,
-      facilityId: record.facility_id,
-      facilityName: record.facilities?.name || 'Unknown Facility',
-      facilityAddress: record.facilities?.address || null,
-      eventType: record.event_type,
-      loadReference: record.load_reference,
-      arrivalTime: record.arrival_time,
-      departureTime: record.departure_time,
-      gracePeriodMinutes: record.grace_period_minutes,
-      hourlyRate: record.hourly_rate,
-      totalElapsedMinutes: record.total_elapsed_minutes || 0,
-      detentionMinutes: record.detention_minutes || 0,
-      detentionAmount: record.detention_amount || 0,
-      status: record.status,
-      notes: record.notes,
-      verificationCode: record.verification_code,
-      photoCount: record.photos?.[0]?.count || 0,
-      createdAt: record.created_at,
-    }));
-
-    return { records, total: count || 0 };
-  } catch (error) {
-    console.error('Error fetching detention history:', error);
-    return { records: [], total: 0 };
-  }
+  return {
+    totalEarnings,
+    totalSessions: completedRecords.length,
+    totalDetentionMinutes,
+    averageWaitMinutes: completedRecords.length > 0 ? Math.round(totalElapsedMinutes / completedRecords.length) : 0,
+  };
 }
 
 /**
- * Fetch a single detention record with full details
+ * Filter records client-side
+ * Use when you have all records and need to apply filters
  */
-export async function fetchDetentionDetail(id: string): Promise<DetentionRecord | null> {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
-      .from('detention_events')
-      .select(`
-        id,
-        facility_id,
-        event_type,
-        load_reference,
-        arrival_time,
-        departure_time,
-        grace_period_minutes,
-        hourly_rate,
-        total_elapsed_minutes,
-        detention_minutes,
-        detention_amount,
-        status,
-        notes,
-        verification_code,
-        created_at,
-        facilities (
-          name,
-          address
-        ),
-        photos (count)
-      `)
-      .eq('id', id)
-      .single();
-
-    if (error || !data) {
-      console.error('Failed to fetch detention detail:', error);
-      return null;
-    }
-
-    return {
-      id: data.id,
-      facilityId: data.facility_id,
-      facilityName: data.facilities?.name || 'Unknown Facility',
-      facilityAddress: data.facilities?.address || null,
-      eventType: data.event_type,
-      loadReference: data.load_reference,
-      arrivalTime: data.arrival_time,
-      departureTime: data.departure_time,
-      gracePeriodMinutes: data.grace_period_minutes,
-      hourlyRate: data.hourly_rate,
-      totalElapsedMinutes: data.total_elapsed_minutes || 0,
-      detentionMinutes: data.detention_minutes || 0,
-      detentionAmount: data.detention_amount || 0,
-      status: data.status,
-      notes: data.notes,
-      verificationCode: data.verification_code,
-      photoCount: data.photos?.[0]?.count || 0,
-      createdAt: data.created_at,
-    };
-  } catch (error) {
-    console.error('Error fetching detention detail:', error);
-    return null;
-  }
+export function filterRecords(records: DetentionRecord[], filters: HistoryFilters): DetentionRecord[] {
+  return records.filter(record => {
+    if (filters.startDate && record.arrivalTime < filters.startDate) return false;
+    if (filters.endDate && record.arrivalTime > filters.endDate) return false;
+    if (filters.facilityId && record.facilityId !== filters.facilityId) return false;
+    if (filters.eventType && record.eventType !== filters.eventType) return false;
+    if (filters.status && record.status !== filters.status) return false;
+    return true;
+  });
 }
 
 /**
- * Fetch history summary (earnings, sessions, etc.)
+ * Get start of current month as Unix timestamp
  */
-export async function fetchHistorySummary(
-  startDate?: string,
-  endDate?: string
-): Promise<HistorySummary> {
-  try {
-    const { data: session } = await supabase.auth.getSession();
-    if (!session?.session?.user) {
-      return {
-        totalEarnings: 0,
-        totalSessions: 0,
-        totalDetentionMinutes: 0,
-        averageWaitMinutes: 0,
-      };
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query = (supabase as any)
-      .from('detention_events')
-      .select('detention_amount, detention_minutes, total_elapsed_minutes')
-      .eq('user_id', session.session.user.id)
-      .eq('status', 'completed');
-
-    if (startDate) {
-      query = query.gte('arrival_time', startDate);
-    }
-    if (endDate) {
-      query = query.lte('arrival_time', endDate);
-    }
-
-    const { data, error } = await query;
-
-    if (error || !data) {
-      console.error('Failed to fetch history summary:', error);
-      return {
-        totalEarnings: 0,
-        totalSessions: 0,
-        totalDetentionMinutes: 0,
-        averageWaitMinutes: 0,
-      };
-    }
-
-    const totalEarnings = data.reduce((sum: number, r: { detention_amount: number }) =>
-      sum + (r.detention_amount || 0), 0);
-    const totalDetentionMinutes = data.reduce((sum: number, r: { detention_minutes: number }) =>
-      sum + (r.detention_minutes || 0), 0);
-    const totalElapsedMinutes = data.reduce((sum: number, r: { total_elapsed_minutes: number }) =>
-      sum + (r.total_elapsed_minutes || 0), 0);
-
-    return {
-      totalEarnings,
-      totalSessions: data.length,
-      totalDetentionMinutes,
-      averageWaitMinutes: data.length > 0 ? Math.round(totalElapsedMinutes / data.length) : 0,
-    };
-  } catch (error) {
-    console.error('Error fetching history summary:', error);
-    return {
-      totalEarnings: 0,
-      totalSessions: 0,
-      totalDetentionMinutes: 0,
-      averageWaitMinutes: 0,
-    };
-  }
-}
-
-/**
- * Get start of current month
- */
-export function getStartOfMonth(): string {
+export function getStartOfMonth(): number {
   const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 }
 
 /**
- * Get start of current week
+ * Get start of current week as Unix timestamp
  */
-export function getStartOfWeek(): string {
+export function getStartOfWeek(): number {
   const now = new Date();
   const dayOfWeek = now.getDay();
   const diff = now.getDate() - dayOfWeek;
-  return new Date(now.getFullYear(), now.getMonth(), diff).toISOString();
+  return new Date(now.getFullYear(), now.getMonth(), diff).getTime();
 }
 
 /**
@@ -328,10 +114,10 @@ export function formatCurrency(amount: number): string {
 }
 
 /**
- * Format date for display
+ * Format date for display from Unix timestamp
  */
-export function formatDate(isoString: string): string {
-  const date = new Date(isoString);
+export function formatDate(timestamp: number): string {
+  const date = new Date(timestamp);
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -340,13 +126,40 @@ export function formatDate(isoString: string): string {
 }
 
 /**
- * Format time for display
+ * Format time for display from Unix timestamp
  */
-export function formatTime(isoString: string): string {
-  const date = new Date(isoString);
+export function formatTime(timestamp: number): string {
+  const date = new Date(timestamp);
   return date.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
   });
+}
+
+/**
+ * Format date and time together
+ */
+export function formatDateTime(timestamp: number): string {
+  return `${formatDate(timestamp)} at ${formatTime(timestamp)}`;
+}
+
+/**
+ * Get relative time string (e.g., "2 hours ago")
+ */
+export function getRelativeTime(timestamp: number): string {
+  const now = Date.now();
+  const diff = now - timestamp;
+  
+  const minutes = Math.floor(diff / (1000 * 60));
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days} days ago`;
+  
+  return formatDate(timestamp);
 }

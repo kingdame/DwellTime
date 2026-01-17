@@ -1,19 +1,23 @@
 /**
  * Profile Service
- * Handles user profile updates with validation
+ * Handles user profile validation and formatting utilities
+ *
+ * NOTE: Data operations now use Convex. Use the hooks from @/shared/hooks/convex
+ * for data fetching and mutations:
+ * - useQuery(api.users.get, { id }) - Get user profile
+ * - useMutation(api.users.update) - Update user profile
  */
 
-import { supabase } from '@/shared/lib/supabase';
 import type { User } from '@/shared/types';
 
 export interface ProfileUpdateInput {
   name?: string;
   phone?: string;
-  company_name?: string;
-  hourly_rate?: number;
-  grace_period_minutes?: number;
-  invoice_terms?: string;
-  invoice_logo_url?: string;
+  companyName?: string;
+  hourlyRate?: number;
+  gracePeriodMinutes?: number;
+  invoiceTerms?: string;
+  invoiceLogoUrl?: string;
 }
 
 export interface ValidationError {
@@ -29,12 +33,12 @@ export interface ProfileUpdateResult {
 
 // Validation constants
 const VALIDATION_RULES = {
-  hourly_rate: { min: 10, max: 300 },
-  grace_period_minutes: { min: 0, max: 480 },
+  hourlyRate: { min: 10, max: 300 },
+  gracePeriodMinutes: { min: 0, max: 480 },
   name: { minLength: 1, maxLength: 50 },
-  company_name: { minLength: 1, maxLength: 100 },
+  companyName: { minLength: 1, maxLength: 100 },
   phone: { pattern: /^[\d\s\-\(\)\+]{7,20}$/ },
-  invoice_terms: { maxLength: 500 },
+  invoiceTerms: { maxLength: 500 },
 };
 
 /**
@@ -44,24 +48,24 @@ export function validateProfileInput(input: ProfileUpdateInput): ValidationError
   const errors: ValidationError[] = [];
 
   // Hourly rate validation
-  if (input.hourly_rate !== undefined) {
-    if (typeof input.hourly_rate !== 'number' || isNaN(input.hourly_rate)) {
-      errors.push({ field: 'hourly_rate', message: 'Hourly rate must be a number' });
-    } else if (input.hourly_rate < VALIDATION_RULES.hourly_rate.min) {
-      errors.push({ field: 'hourly_rate', message: `Hourly rate must be at least $${VALIDATION_RULES.hourly_rate.min}` });
-    } else if (input.hourly_rate > VALIDATION_RULES.hourly_rate.max) {
-      errors.push({ field: 'hourly_rate', message: `Hourly rate cannot exceed $${VALIDATION_RULES.hourly_rate.max}` });
+  if (input.hourlyRate !== undefined) {
+    if (typeof input.hourlyRate !== 'number' || isNaN(input.hourlyRate)) {
+      errors.push({ field: 'hourlyRate', message: 'Hourly rate must be a number' });
+    } else if (input.hourlyRate < VALIDATION_RULES.hourlyRate.min) {
+      errors.push({ field: 'hourlyRate', message: `Hourly rate must be at least $${VALIDATION_RULES.hourlyRate.min}` });
+    } else if (input.hourlyRate > VALIDATION_RULES.hourlyRate.max) {
+      errors.push({ field: 'hourlyRate', message: `Hourly rate cannot exceed $${VALIDATION_RULES.hourlyRate.max}` });
     }
   }
 
   // Grace period validation
-  if (input.grace_period_minutes !== undefined) {
-    if (typeof input.grace_period_minutes !== 'number' || isNaN(input.grace_period_minutes)) {
-      errors.push({ field: 'grace_period_minutes', message: 'Grace period must be a number' });
-    } else if (input.grace_period_minutes < VALIDATION_RULES.grace_period_minutes.min) {
-      errors.push({ field: 'grace_period_minutes', message: 'Grace period cannot be negative' });
-    } else if (input.grace_period_minutes > VALIDATION_RULES.grace_period_minutes.max) {
-      errors.push({ field: 'grace_period_minutes', message: `Grace period cannot exceed ${VALIDATION_RULES.grace_period_minutes.max} minutes (8 hours)` });
+  if (input.gracePeriodMinutes !== undefined) {
+    if (typeof input.gracePeriodMinutes !== 'number' || isNaN(input.gracePeriodMinutes)) {
+      errors.push({ field: 'gracePeriodMinutes', message: 'Grace period must be a number' });
+    } else if (input.gracePeriodMinutes < VALIDATION_RULES.gracePeriodMinutes.min) {
+      errors.push({ field: 'gracePeriodMinutes', message: 'Grace period cannot be negative' });
+    } else if (input.gracePeriodMinutes > VALIDATION_RULES.gracePeriodMinutes.max) {
+      errors.push({ field: 'gracePeriodMinutes', message: `Grace period cannot exceed ${VALIDATION_RULES.gracePeriodMinutes.max} minutes (8 hours)` });
     }
   }
 
@@ -76,9 +80,9 @@ export function validateProfileInput(input: ProfileUpdateInput): ValidationError
   }
 
   // Company name validation
-  if (input.company_name !== undefined && input.company_name.trim().length > 0) {
-    if (input.company_name.length > VALIDATION_RULES.company_name.maxLength) {
-      errors.push({ field: 'company_name', message: `Company name cannot exceed ${VALIDATION_RULES.company_name.maxLength} characters` });
+  if (input.companyName !== undefined && input.companyName.trim().length > 0) {
+    if (input.companyName.length > VALIDATION_RULES.companyName.maxLength) {
+      errors.push({ field: 'companyName', message: `Company name cannot exceed ${VALIDATION_RULES.companyName.maxLength} characters` });
     }
   }
 
@@ -90,9 +94,9 @@ export function validateProfileInput(input: ProfileUpdateInput): ValidationError
   }
 
   // Invoice terms validation
-  if (input.invoice_terms !== undefined) {
-    if (input.invoice_terms.length > VALIDATION_RULES.invoice_terms.maxLength) {
-      errors.push({ field: 'invoice_terms', message: `Invoice terms cannot exceed ${VALIDATION_RULES.invoice_terms.maxLength} characters` });
+  if (input.invoiceTerms !== undefined) {
+    if (input.invoiceTerms.length > VALIDATION_RULES.invoiceTerms.maxLength) {
+      errors.push({ field: 'invoiceTerms', message: `Invoice terms cannot exceed ${VALIDATION_RULES.invoiceTerms.maxLength} characters` });
     }
   }
 
@@ -100,68 +104,20 @@ export function validateProfileInput(input: ProfileUpdateInput): ValidationError
 }
 
 /**
- * Fetch user profile by ID
+ * Clean profile input - trim strings, prepare for mutation
  */
-export async function fetchUserProfile(userId: string): Promise<User | null> {
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', userId)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    console.error('Error fetching user profile:', error);
-    throw new Error(`Failed to fetch profile: ${error.message}`);
-  }
-
-  return data;
-}
-
-/**
- * Update user profile with validation
- */
-export async function updateUserProfile(
-  userId: string,
-  input: ProfileUpdateInput
-): Promise<ProfileUpdateResult> {
-  // Validate input
-  const validationErrors = validateProfileInput(input);
-  if (validationErrors.length > 0) {
-    return { success: false, errors: validationErrors };
-  }
-
-  // Clean input - trim strings, remove undefined
-  const cleanedInput: Record<string, any> = {};
+export function cleanProfileInput(input: ProfileUpdateInput): Record<string, unknown> {
+  const cleanedInput: Record<string, unknown> = {};
 
   if (input.name !== undefined) cleanedInput.name = input.name.trim();
-  if (input.phone !== undefined) cleanedInput.phone = input.phone.trim() || null;
-  if (input.company_name !== undefined) cleanedInput.company_name = input.company_name.trim() || null;
-  if (input.hourly_rate !== undefined) cleanedInput.hourly_rate = input.hourly_rate;
-  if (input.grace_period_minutes !== undefined) cleanedInput.grace_period_minutes = input.grace_period_minutes;
-  if (input.invoice_terms !== undefined) cleanedInput.invoice_terms = input.invoice_terms.trim() || null;
-  if (input.invoice_logo_url !== undefined) cleanedInput.invoice_logo_url = input.invoice_logo_url || null;
+  if (input.phone !== undefined) cleanedInput.phone = input.phone.trim() || undefined;
+  if (input.companyName !== undefined) cleanedInput.companyName = input.companyName.trim() || undefined;
+  if (input.hourlyRate !== undefined) cleanedInput.hourlyRate = input.hourlyRate;
+  if (input.gracePeriodMinutes !== undefined) cleanedInput.gracePeriodMinutes = input.gracePeriodMinutes;
+  if (input.invoiceTerms !== undefined) cleanedInput.invoiceTerms = input.invoiceTerms.trim() || undefined;
+  if (input.invoiceLogoUrl !== undefined) cleanedInput.invoiceLogoUrl = input.invoiceLogoUrl || undefined;
 
-  // Add updated_at timestamp
-  cleanedInput.updated_at = new Date().toISOString();
-
-  // Update in Supabase
-  const { data, error } = await supabase
-    .from('users')
-    .update(cleanedInput)
-    .eq('id', userId)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error updating user profile:', error);
-    return {
-      success: false,
-      errors: [{ field: 'general', message: `Failed to update profile: ${error.message}` }],
-    };
-  }
-
-  return { success: true, user: data };
+  return cleanedInput;
 }
 
 /**

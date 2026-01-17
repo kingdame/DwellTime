@@ -1,294 +1,90 @@
 /**
  * Email Service
- * Handles invoice email sending and contact management
+ * Utility functions for invoice emails
+ *
+ * NOTE: Email sending now uses Convex HTTP actions.
+ * Use: useMutation(api.email.sendInvoice) for sending emails
  */
 
-import { supabase } from '@/shared/lib/supabase';
-
-export interface SendInvoiceEmailInput {
-  invoiceId: string;
-  recipientEmail: string;
-  recipientName?: string;
-  customMessage?: string;
-  ccEmails?: string[];
+export interface EmailRecipient {
+  email: string;
+  name?: string;
 }
 
 export interface EmailContact {
   id: string;
-  user_id: string;
-  email: string;
-  name: string | null;
-  company: string | null;
-  contact_type: 'broker' | 'shipper' | 'dispatcher' | 'other' | null;
-  use_count: number;
-  last_used_at: string | null;
-  created_at: string;
-}
-
-export interface EmailContactInput {
-  user_id: string;
+  userId: string;
   email: string;
   name?: string;
   company?: string;
-  contact_type?: 'broker' | 'shipper' | 'dispatcher' | 'other';
-}
-
-export interface InvoiceEmail {
-  id: string;
-  invoice_id: string;
-  recipient_email: string;
-  recipient_name: string | null;
-  cc_emails: string[] | null;
-  custom_message: string | null;
-  status: 'pending' | 'sent' | 'failed';
-  message_id: string | null;
-  error_message: string | null;
-  sent_at: string | null;
-  created_at: string;
+  facilityId?: string;
+  lastUsedAt?: number;
+  useCount: number;
 }
 
 /**
- * Send invoice email via Supabase Edge Function
+ * Validate email address format
  */
-export async function sendInvoiceEmail(
-  input: SendInvoiceEmailInput
-): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const { data, error } = await supabase.functions.invoke('send-invoice-email', {
-    body: input,
-  });
-
-  if (error) {
-    throw new Error(`Failed to send email: ${error.message}`);
-  }
-
-  return data as { success: boolean; messageId?: string; error?: string };
+export function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
 }
 
 /**
- * Fetch user's email contacts ordered by usage
+ * Validate recipient list
  */
-export async function fetchEmailContacts(userId: string): Promise<EmailContact[]> {
-  const { data, error } = await supabase
-    .from('email_contacts')
-    .select('*')
-    .eq('user_id', userId)
-    .order('use_count', { ascending: false })
-    .limit(20);
+export function validateRecipients(recipients: EmailRecipient[]): {
+  valid: EmailRecipient[];
+  invalid: string[];
+} {
+  const valid: EmailRecipient[] = [];
+  const invalid: string[] = [];
 
-  if (error) {
-    throw new Error(`Failed to fetch contacts: ${error.message}`);
-  }
-
-  return data || [];
-}
-
-/**
- * Save or update an email contact
- */
-export async function saveEmailContact(
-  input: EmailContactInput
-): Promise<EmailContact> {
-  const { data, error } = await supabase
-    .from('email_contacts')
-    .upsert(
-      {
-        ...input,
-        use_count: 1,
-        last_used_at: new Date().toISOString(),
-      },
-      {
-        onConflict: 'user_id,email',
-        ignoreDuplicates: false,
-      }
-    )
-    .select()
-    .single();
-
-  if (error) {
-    throw new Error(`Failed to save contact: ${error.message}`);
-  }
-
-  return data;
-}
-
-/**
- * Increment contact usage count
- */
-export async function incrementContactUsage(contactId: string): Promise<void> {
-  // Try RPC first for atomic increment
-  const { error: rpcError } = await supabase.rpc('increment_contact_usage', {
-    contact_id: contactId,
-  });
-
-  // Fallback if RPC doesn't exist
-  if (rpcError) {
-    const { data: contact } = await supabase
-      .from('email_contacts')
-      .select('use_count')
-      .eq('id', contactId)
-      .single();
-
-    if (contact) {
-      await supabase
-        .from('email_contacts')
-        .update({
-          use_count: contact.use_count + 1,
-          last_used_at: new Date().toISOString(),
-        })
-        .eq('id', contactId);
+  for (const recipient of recipients) {
+    if (isValidEmail(recipient.email)) {
+      valid.push(recipient);
+    } else {
+      invalid.push(recipient.email);
     }
   }
+
+  return { valid, invalid };
 }
 
 /**
- * Delete an email contact
+ * Format recipient for display
  */
-export async function deleteEmailContact(contactId: string): Promise<void> {
-  const { error } = await supabase
-    .from('email_contacts')
-    .delete()
-    .eq('id', contactId);
-
-  if (error) {
-    throw new Error(`Failed to delete contact: ${error.message}`);
+export function formatRecipient(recipient: EmailRecipient): string {
+  if (recipient.name) {
+    return `${recipient.name} <${recipient.email}>`;
   }
+  return recipient.email;
 }
 
 /**
- * Fetch email history for an invoice
+ * Sort contacts by usage (most used first)
  */
-export async function fetchInvoiceEmailHistory(
-  invoiceId: string
-): Promise<InvoiceEmail[]> {
-  const { data, error } = await supabase
-    .from('invoice_emails')
-    .select('*')
-    .eq('invoice_id', invoiceId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    throw new Error(`Failed to fetch email history: ${error.message}`);
-  }
-
-  return data || [];
-}
-
-/**
- * Search contacts by email or name
- */
-export async function searchEmailContacts(
-  userId: string,
-  query: string
-): Promise<EmailContact[]> {
-  const { data, error } = await supabase
-    .from('email_contacts')
-    .select('*')
-    .eq('user_id', userId)
-    .or(`email.ilike.%${query}%,name.ilike.%${query}%,company.ilike.%${query}%`)
-    .order('use_count', { ascending: false })
-    .limit(10);
-
-  if (error) {
-    throw new Error(`Failed to search contacts: ${error.message}`);
-  }
-
-  return data || [];
-}
-
-/**
- * Get frequently used contacts
- */
-export async function getFrequentContacts(
-  userId: string,
-  limit: number = 5
-): Promise<EmailContact[]> {
-  const { data, error } = await supabase
-    .from('email_contacts')
-    .select('*')
-    .eq('user_id', userId)
-    .order('use_count', { ascending: false })
-    .limit(limit);
-
-  if (error) {
-    throw new Error(`Failed to fetch frequent contacts: ${error.message}`);
-  }
-
-  return data || [];
-}
-
-/**
- * Update an existing email contact
- */
-export async function updateEmailContact(
-  contactId: string,
-  updates: Partial<Omit<EmailContactInput, 'user_id'>>
-): Promise<EmailContact> {
-  const { data, error } = await supabase
-    .from('email_contacts')
-    .update(updates)
-    .eq('id', contactId)
-    .select()
-    .single();
-
-  if (error) {
-    throw new Error(`Failed to update contact: ${error.message}`);
-  }
-
-  return data;
-}
-
-/**
- * Fetch contacts by type
- */
-export async function fetchContactsByType(
-  userId: string,
-  contactType: 'broker' | 'shipper' | 'dispatcher' | 'other'
-): Promise<EmailContact[]> {
-  const { data, error } = await supabase
-    .from('email_contacts')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('contact_type', contactType)
-    .order('use_count', { ascending: false });
-
-  if (error) {
-    throw new Error(`Failed to fetch contacts by type: ${error.message}`);
-  }
-
-  return data || [];
-}
-
-/**
- * Get contact statistics
- */
-export async function getContactStats(userId: string): Promise<{
-  total: number;
-  byType: Record<string, number>;
-}> {
-  const { data, error } = await supabase
-    .from('email_contacts')
-    .select('contact_type')
-    .eq('user_id', userId);
-
-  if (error) {
-    throw new Error(`Failed to fetch contact stats: ${error.message}`);
-  }
-
-  const contacts = data || [];
-  const byType: Record<string, number> = {
-    broker: 0,
-    shipper: 0,
-    dispatcher: 0,
-    other: 0,
-  };
-
-  contacts.forEach((c) => {
-    const type = c.contact_type || 'other';
-    byType[type] = (byType[type] || 0) + 1;
+export function sortContactsByUsage(contacts: EmailContact[]): EmailContact[] {
+  return [...contacts].sort((a, b) => {
+    // First by use count
+    if (b.useCount !== a.useCount) {
+      return b.useCount - a.useCount;
+    }
+    // Then by last used
+    const aTime = a.lastUsedAt || 0;
+    const bTime = b.lastUsedAt || 0;
+    return bTime - aTime;
   });
+}
 
-  return {
-    total: contacts.length,
-    byType,
-  };
+/**
+ * Filter contacts by search query
+ */
+export function filterContacts(contacts: EmailContact[], query: string): EmailContact[] {
+  const lowerQuery = query.toLowerCase();
+  return contacts.filter(contact => 
+    contact.email.toLowerCase().includes(lowerQuery) ||
+    contact.name?.toLowerCase().includes(lowerQuery) ||
+    contact.company?.toLowerCase().includes(lowerQuery)
+  );
 }

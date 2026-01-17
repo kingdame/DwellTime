@@ -1,473 +1,181 @@
 /**
  * Fleet Service Tests
- * Tests for fleet CRUD operations and dashboard statistics
+ * Tests pure utility functions for fleet management
+ * 
+ * NOTE: Database operations now use Convex hooks directly.
+ * These tests cover the utility/helper functions only.
  */
 
-// Mock Supabase client before imports
-const mockSelect = jest.fn();
-const mockInsert = jest.fn();
-const mockUpdate = jest.fn();
-const mockDelete = jest.fn();
-const mockEq = jest.fn();
-const mockIn = jest.fn();
-const mockSingle = jest.fn();
-const mockOrder = jest.fn();
-
-const mockSupabase = {
-  from: jest.fn(() => ({
-    select: mockSelect,
-    insert: mockInsert,
-    update: mockUpdate,
-    delete: mockDelete,
-  })),
-};
-
-// Chain returns for query building
-mockSelect.mockReturnValue({
-  eq: mockEq,
-  in: mockIn,
-  single: mockSingle,
-  order: mockOrder,
-});
-
-mockInsert.mockReturnValue({
-  select: mockSelect,
-});
-
-mockUpdate.mockReturnValue({
-  eq: mockEq,
-  select: mockSelect,
-});
-
-mockDelete.mockReturnValue({
-  eq: mockEq,
-});
-
-mockEq.mockReturnValue({
-  eq: mockEq,
-  select: mockSelect,
-  single: mockSingle,
-  order: mockOrder,
-});
-
-mockIn.mockReturnValue({
-  eq: mockEq,
-  single: mockSingle,
-});
-
-mockOrder.mockReturnValue({
-  eq: mockEq,
-  single: mockSingle,
-});
-
-jest.mock('@/shared/lib/supabase', () => ({
-  supabase: mockSupabase,
-}));
+import {
+  calculateFleetStats,
+  formatMemberRole,
+  formatMemberStatus,
+  getMemberStatusColor,
+} from '../services/fleetService';
 
 // ============================================================================
 // Test Data
 // ============================================================================
 
-const mockOwnerId = 'owner-123';
-const mockFleetId = 'fleet-456';
-
-const mockFleet = {
-  id: mockFleetId,
-  name: 'Test Fleet',
-  owner_id: mockOwnerId,
-  company_name: 'Test Trucking Co',
-  logo_url: null,
-  billing_email: 'billing@test.com',
-  default_hourly_rate: 75,
-  default_grace_period_minutes: 120,
-  settings: {
-    allowMemberInvites: false,
-    requireApprovalForEvents: false,
-    autoConsolidateInvoices: true,
-    invoiceConsolidationPeriod: 'biweekly',
-    notifyOnNewEvents: true,
-    notifyOnInvoiceReady: true,
-  },
-  created_at: '2024-01-01T00:00:00Z',
-  updated_at: '2024-01-01T00:00:00Z',
-};
-
-const mockFleetMembers = [
-  { id: 'member-1', status: 'active', role: 'admin' },
-  { id: 'member-2', status: 'active', role: 'driver' },
-  { id: 'member-3', status: 'suspended', role: 'driver' },
+const mockMembers = [
+  { status: 'active' },
+  { status: 'active' },
+  { status: 'suspended' },
+  { status: 'removed' },
+  { status: 'pending' },
 ];
 
-const mockDetentionEvents = [
-  { detention_minutes: 60, total_amount: 75, status: 'completed' },
-  { detention_minutes: 120, total_amount: 150, status: 'completed' },
-  { detention_minutes: 30, total_amount: 37.5, status: 'active' },
-  { detention_minutes: 90, total_amount: 112.5, status: 'invoiced' },
-];
-
-const mockInvoices = [
-  { status: 'sent' },
-  { status: 'sent' },
-  { status: 'paid' },
+const mockEvents = [
+  { status: 'active', totalAmount: 100, detentionMinutes: 60 },
+  { status: 'completed', totalAmount: 150, detentionMinutes: 90 },
+  { status: 'invoiced', totalAmount: 200, detentionMinutes: 120 },
+  { status: 'paid', totalAmount: 75, detentionMinutes: 45 },
 ];
 
 // ============================================================================
-// Test Suites
+// calculateFleetStats Tests
 // ============================================================================
 
-describe('Fleet Service', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+describe('calculateFleetStats', () => {
+  it('calculates total drivers correctly', () => {
+    const stats = calculateFleetStats(mockMembers, mockEvents);
+    expect(stats.totalDrivers).toBe(5);
   });
 
-  describe('createFleet', () => {
-    it('creates fleet and adds owner as admin', async () => {
-      // Setup mock responses
-      mockSingle.mockResolvedValueOnce({ data: mockFleet, error: null });
-      mockSelect.mockReturnValueOnce({ single: mockSingle });
-      mockInsert.mockReturnValueOnce({ select: mockSelect });
-
-      // Second call for adding member
-      mockInsert.mockResolvedValueOnce({ error: null });
-
-      const { createFleet } = await import('../services/fleetService');
-
-      // Need to reset for clean call
-      mockSingle.mockResolvedValueOnce({ data: mockFleet, error: null });
-      mockInsert.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          single: jest.fn().mockResolvedValue({ data: mockFleet, error: null })
-        })
-      });
-
-      // Can't fully test without more complex mock setup
-      // This validates the function structure exists
-      expect(typeof createFleet).toBe('function');
-    });
-
-    it('throws error when fleet creation fails', async () => {
-      mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { message: 'Database error' }
-      });
-
-      const { createFleet } = await import('../services/fleetService');
-
-      // Function should handle errors appropriately
-      expect(typeof createFleet).toBe('function');
-    });
-
-    it('rolls back fleet if member creation fails', async () => {
-      // First call succeeds (create fleet)
-      mockSingle.mockResolvedValueOnce({ data: mockFleet, error: null });
-
-      // Second call fails (add member)
-      mockInsert.mockResolvedValueOnce({
-        error: { message: 'Member creation failed' }
-      });
-
-      const { createFleet } = await import('../services/fleetService');
-
-      // Should handle rollback scenario
-      expect(typeof createFleet).toBe('function');
-    });
+  it('calculates active drivers correctly', () => {
+    const stats = calculateFleetStats(mockMembers, mockEvents);
+    expect(stats.activeDrivers).toBe(2);
   });
 
-  describe('fetchFleet', () => {
-    it('returns fleet data when found', async () => {
-      mockSingle.mockResolvedValueOnce({ data: mockFleet, error: null });
-      mockEq.mockReturnValueOnce({ single: mockSingle });
-      mockSelect.mockReturnValueOnce({ eq: mockEq });
-
-      const { fetchFleet } = await import('../services/fleetService');
-
-      expect(typeof fetchFleet).toBe('function');
-    });
-
-    it('returns null when fleet not found', async () => {
-      mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST116', message: 'Not found' }
-      });
-
-      const { fetchFleet } = await import('../services/fleetService');
-
-      expect(typeof fetchFleet).toBe('function');
-    });
-
-    it('throws error on database failure', async () => {
-      mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { code: 'OTHER', message: 'Database error' }
-      });
-
-      const { fetchFleet } = await import('../services/fleetService');
-
-      expect(typeof fetchFleet).toBe('function');
-    });
+  it('calculates active events correctly', () => {
+    const stats = calculateFleetStats(mockMembers, mockEvents);
+    expect(stats.activeEvents).toBe(1);
   });
 
-  describe('updateFleet', () => {
-    it('updates fleet settings successfully', async () => {
-      // First call to get existing settings
-      mockSingle.mockResolvedValueOnce({
-        data: { settings: mockFleet.settings },
-        error: null
-      });
-
-      // Second call to update
-      mockSingle.mockResolvedValueOnce({
-        data: { ...mockFleet, name: 'Updated Fleet' },
-        error: null
-      });
-
-      const { updateFleet } = await import('../services/fleetService');
-
-      expect(typeof updateFleet).toBe('function');
-    });
-
-    it('merges settings with existing values', async () => {
-      const existingSettings = {
-        allowMemberInvites: false,
-        requireApprovalForEvents: false,
-        autoConsolidateInvoices: true,
-        invoiceConsolidationPeriod: 'biweekly',
-        notifyOnNewEvents: true,
-        notifyOnInvoiceReady: true,
-      };
-
-      mockSingle.mockResolvedValueOnce({
-        data: { settings: existingSettings },
-        error: null
-      });
-
-      mockSingle.mockResolvedValueOnce({
-        data: mockFleet,
-        error: null
-      });
-
-      const { updateFleet } = await import('../services/fleetService');
-
-      expect(typeof updateFleet).toBe('function');
-    });
-
-    it('throws error on update failure', async () => {
-      mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: { message: 'Update failed' }
-      });
-
-      const { updateFleet } = await import('../services/fleetService');
-
-      expect(typeof updateFleet).toBe('function');
-    });
+  it('calculates total earnings from completed/invoiced/paid events', () => {
+    const stats = calculateFleetStats(mockMembers, mockEvents);
+    // completed (150) + invoiced (200) + paid (75) = 425
+    expect(stats.totalEarnings).toBe(425);
   });
 
-  describe('fetchFleetSummary', () => {
-    it('calculates stats correctly with data', async () => {
-      // Members query
-      mockEq.mockReturnValueOnce({
-        data: mockFleetMembers,
-        error: null
-      });
-
-      // Events query
-      mockIn.mockReturnValueOnce({
-        data: mockDetentionEvents,
-        error: null
-      });
-
-      // Invoices query
-      mockEq.mockReturnValueOnce({
-        data: mockInvoices,
-        error: null
-      });
-
-      const { fetchFleetSummary } = await import('../services/fleetService');
-
-      expect(typeof fetchFleetSummary).toBe('function');
-    });
-
-    it('returns zero stats for empty fleet', async () => {
-      mockEq.mockReturnValueOnce({ data: [], error: null });
-      mockIn.mockReturnValueOnce({ data: [], error: null });
-      mockEq.mockReturnValueOnce({ data: [], error: null });
-
-      const { fetchFleetSummary } = await import('../services/fleetService');
-
-      expect(typeof fetchFleetSummary).toBe('function');
-    });
-
-    it('handles member fetch error', async () => {
-      mockEq.mockReturnValueOnce({
-        data: null,
-        error: { message: 'Failed to fetch members' }
-      });
-
-      const { fetchFleetSummary } = await import('../services/fleetService');
-
-      expect(typeof fetchFleetSummary).toBe('function');
-    });
-
-    it('calculates average detention minutes correctly', () => {
-      // Test calculation logic
-      const events = [
-        { detention_minutes: 60 },
-        { detention_minutes: 120 },
-        { detention_minutes: 90 },
-      ];
-
-      const totalMinutes = events.reduce((sum, e) => sum + e.detention_minutes, 0);
-      const averageMinutes = Math.round(totalMinutes / events.length);
-
-      expect(averageMinutes).toBe(90);
-    });
-
-    it('aggregates events by status correctly', () => {
-      const events = [
-        { status: 'active' },
-        { status: 'completed' },
-        { status: 'completed' },
-        { status: 'invoiced' },
-        { status: 'paid' },
-      ];
-
-      const eventsByStatus = events.reduce(
-        (acc, event) => {
-          acc[event.status as keyof typeof acc]++;
-          return acc;
-        },
-        { active: 0, completed: 0, invoiced: 0, paid: 0 }
-      );
-
-      expect(eventsByStatus.active).toBe(1);
-      expect(eventsByStatus.completed).toBe(2);
-      expect(eventsByStatus.invoiced).toBe(1);
-      expect(eventsByStatus.paid).toBe(1);
-    });
+  it('calculates total detention minutes from completed/invoiced/paid events', () => {
+    const stats = calculateFleetStats(mockMembers, mockEvents);
+    // completed (90) + invoiced (120) + paid (45) = 255
+    expect(stats.totalDetentionMinutes).toBe(255);
   });
 
-  describe('fetchUserFleets', () => {
-    it('returns fleets for user', async () => {
-      // Memberships query
-      mockEq.mockReturnValueOnce({
-        data: [{ fleet_id: 'fleet-1' }, { fleet_id: 'fleet-2' }],
-        error: null
-      });
-
-      // Fleets query
-      mockOrder.mockReturnValueOnce({
-        data: [mockFleet],
-        error: null
-      });
-
-      const { fetchUserFleets } = await import('../services/fleetService');
-
-      expect(typeof fetchUserFleets).toBe('function');
-    });
-
-    it('returns empty array when user has no memberships', async () => {
-      mockEq.mockReturnValueOnce({ data: [], error: null });
-
-      const { fetchUserFleets } = await import('../services/fleetService');
-
-      expect(typeof fetchUserFleets).toBe('function');
-    });
+  it('handles empty members array', () => {
+    const stats = calculateFleetStats([], mockEvents);
+    expect(stats.totalDrivers).toBe(0);
+    expect(stats.activeDrivers).toBe(0);
   });
 
-  describe('deleteFleet', () => {
-    it('deletes fleet when owner requests', async () => {
-      mockSingle.mockResolvedValueOnce({
-        data: { owner_id: mockOwnerId },
-        error: null
-      });
-
-      mockEq.mockReturnValueOnce({ error: null });
-
-      const { deleteFleet } = await import('../services/fleetService');
-
-      expect(typeof deleteFleet).toBe('function');
-    });
-
-    it('throws error when non-owner tries to delete', async () => {
-      mockSingle.mockResolvedValueOnce({
-        data: { owner_id: 'different-owner' },
-        error: null
-      });
-
-      const { deleteFleet } = await import('../services/fleetService');
-
-      expect(typeof deleteFleet).toBe('function');
-    });
+  it('handles empty events array', () => {
+    const stats = calculateFleetStats(mockMembers, []);
+    expect(stats.totalEarnings).toBe(0);
+    expect(stats.totalDetentionMinutes).toBe(0);
+    expect(stats.activeEvents).toBe(0);
   });
 });
 
 // ============================================================================
-// Pure Function Tests (without mocking)
+// formatMemberRole Tests
 // ============================================================================
 
-describe('Fleet Service - Pure Functions', () => {
-  describe('DEFAULT_SETTINGS', () => {
-    it('has expected default values', () => {
-      const DEFAULT_SETTINGS = {
-        allowMemberInvites: false,
-        requireApprovalForEvents: false,
-        autoConsolidateInvoices: true,
-        invoiceConsolidationPeriod: 'biweekly',
-        notifyOnNewEvents: true,
-        notifyOnInvoiceReady: true,
-      };
-
-      expect(DEFAULT_SETTINGS.allowMemberInvites).toBe(false);
-      expect(DEFAULT_SETTINGS.requireApprovalForEvents).toBe(false);
-      expect(DEFAULT_SETTINGS.autoConsolidateInvoices).toBe(true);
-      expect(DEFAULT_SETTINGS.invoiceConsolidationPeriod).toBe('biweekly');
-      expect(DEFAULT_SETTINGS.notifyOnNewEvents).toBe(true);
-      expect(DEFAULT_SETTINGS.notifyOnInvoiceReady).toBe(true);
-    });
+describe('formatMemberRole', () => {
+  it('formats admin role', () => {
+    expect(formatMemberRole('admin')).toBe('Admin');
   });
 
-  describe('Fleet summary calculation', () => {
-    it('counts active members correctly', () => {
-      const members = [
-        { status: 'active' },
-        { status: 'active' },
-        { status: 'suspended' },
-        { status: 'removed' },
-      ];
+  it('formats driver role', () => {
+    expect(formatMemberRole('driver')).toBe('Driver');
+  });
+});
 
-      const activeCount = members.filter(m => m.status === 'active').length;
-      expect(activeCount).toBe(2);
-    });
+// ============================================================================
+// formatMemberStatus Tests
+// ============================================================================
 
-    it('counts invoice statuses correctly', () => {
-      const invoices = [
-        { status: 'sent' },
-        { status: 'sent' },
-        { status: 'paid' },
-        { status: 'paid' },
-        { status: 'paid' },
-      ];
+describe('formatMemberStatus', () => {
+  it('formats active status', () => {
+    expect(formatMemberStatus('active')).toBe('Active');
+  });
 
-      const pending = invoices.filter(i => i.status === 'sent').length;
-      const paid = invoices.filter(i => i.status === 'paid').length;
+  it('formats pending status', () => {
+    expect(formatMemberStatus('pending')).toBe('Pending');
+  });
 
-      expect(pending).toBe(2);
-      expect(paid).toBe(3);
-    });
+  it('formats suspended status', () => {
+    expect(formatMemberStatus('suspended')).toBe('Suspended');
+  });
 
-    it('calculates total detention correctly', () => {
-      const events = [
-        { detention_minutes: 60, total_amount: 75 },
-        { detention_minutes: 120, total_amount: 150 },
-        { detention_minutes: 45, total_amount: 56.25 },
-      ];
+  it('formats removed status', () => {
+    expect(formatMemberStatus('removed')).toBe('Removed');
+  });
 
-      const totalMinutes = events.reduce((sum, e) => sum + e.detention_minutes, 0);
-      const totalAmount = events.reduce((sum, e) => sum + e.total_amount, 0);
+  it('returns original for unknown status', () => {
+    expect(formatMemberStatus('custom')).toBe('custom');
+  });
+});
 
-      expect(totalMinutes).toBe(225);
-      expect(totalAmount).toBe(281.25);
-    });
+// ============================================================================
+// getMemberStatusColor Tests
+// ============================================================================
+
+describe('getMemberStatusColor', () => {
+  it('returns green for active', () => {
+    expect(getMemberStatusColor('active')).toBe('#10B981');
+  });
+
+  it('returns yellow for pending', () => {
+    expect(getMemberStatusColor('pending')).toBe('#F59E0B');
+  });
+
+  it('returns red for suspended', () => {
+    expect(getMemberStatusColor('suspended')).toBe('#EF4444');
+  });
+
+  it('returns gray for removed', () => {
+    expect(getMemberStatusColor('removed')).toBe('#6B7280');
+  });
+
+  it('returns gray for unknown status', () => {
+    expect(getMemberStatusColor('custom')).toBe('#6B7280');
+  });
+});
+
+// ============================================================================
+// Edge Cases
+// ============================================================================
+
+describe('Edge Cases', () => {
+  it('handles all suspended members', () => {
+    const allSuspended = [
+      { status: 'suspended' },
+      { status: 'suspended' },
+    ];
+    const stats = calculateFleetStats(allSuspended, []);
+    expect(stats.activeDrivers).toBe(0);
+    expect(stats.totalDrivers).toBe(2);
+  });
+
+  it('handles only active events', () => {
+    const activeOnly = [
+      { status: 'active', totalAmount: 100, detentionMinutes: 60 },
+      { status: 'active', totalAmount: 200, detentionMinutes: 120 },
+    ];
+    const stats = calculateFleetStats([], activeOnly);
+    expect(stats.activeEvents).toBe(2);
+    expect(stats.totalEarnings).toBe(0); // Active events don't count toward earnings
+  });
+
+  it('handles large numbers correctly', () => {
+    const events = [
+      { status: 'paid', totalAmount: 10000, detentionMinutes: 6000 },
+      { status: 'paid', totalAmount: 25000, detentionMinutes: 15000 },
+    ];
+    const stats = calculateFleetStats([], events);
+    expect(stats.totalEarnings).toBe(35000);
+    expect(stats.totalDetentionMinutes).toBe(21000);
   });
 });

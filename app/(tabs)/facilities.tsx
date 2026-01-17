@@ -5,9 +5,11 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-native';
 import { colors } from '../../src/constants/colors';
-import { FacilityLookup, FacilitySearch, useRecentFacilities } from '../../src/features/facilities';
-import { useAuth } from '../../src/features/auth';
+import { FacilityLookup, FacilitySearch } from '../../src/features/facilities';
+import { useCurrentUserId, useCurrentUser } from '../../src/features/auth';
+import { useDetentionHistory } from '../../src/shared/hooks/convex';
 import type { Facility } from '../../src/shared/types';
+import type { Id } from '../../convex/_generated/dataModel';
 
 function SavedFacilityCard({ facility }: { facility: Facility }) {
   const theme = colors.dark;
@@ -41,15 +43,52 @@ function SavedFacilityCard({ facility }: { facility: Facility }) {
 
 export default function FacilitiesTab() {
   const theme = colors.dark;
-  const { user } = useAuth();
+  const userId = useCurrentUserId() as Id<"users"> | undefined;
+  const user = useCurrentUser();
   const [showLookup, setShowLookup] = useState(false);
   const [showAddFacility, setShowAddFacility] = useState(false);
 
-  // Get recent facilities for quick access
-  const { data: recentFacilities, isLoading: isLoadingRecent } = useRecentFacilities(
-    user?.id || null,
-    10
-  );
+  // Get recent facilities from detention history (last 10 unique facilities)
+  const detentionHistory = useDetentionHistory(userId, { limit: 50 });
+  
+  // Extract unique recent facilities from detention events
+  const recentFacilities: Facility[] = [];
+  const seenFacilities = new Set<string>();
+  
+  if (detentionHistory) {
+    for (const event of detentionHistory) {
+      if (event.facilityName && !seenFacilities.has(event.facilityName)) {
+        seenFacilities.add(event.facilityName);
+        recentFacilities.push({
+          id: event.facilityId || event._id,
+          name: event.facilityName,
+          address: event.facilityAddress || '',
+          city: '',
+          state: '',
+          zip: '',
+          lat: event.lat || 0,
+          lng: event.lng || 0,
+          facility_type: event.eventType === 'pickup' ? 'shipper' : 'receiver',
+          avg_wait_minutes: null,
+          avg_rating: null,
+          total_reviews: 0,
+          overnight_parking: null,
+          parking_spaces: null,
+          restrooms: null,
+          driver_lounge: null,
+          water_available: null,
+          vending_machines: null,
+          wifi_available: null,
+          showers_available: null,
+          created_at: '',
+          updated_at: '',
+        });
+        if (recentFacilities.length >= 10) break;
+      }
+    }
+  }
+  
+  const isLoadingRecent = detentionHistory === undefined;
 
   const handleFacilitySelect = (facility: Facility) => {
     console.log('Selected facility:', facility.id);
@@ -93,7 +132,7 @@ export default function FacilitiesTab() {
         <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Quick Search</Text>
         <FacilitySearch
           onSelect={handleFacilitySelect}
-          userId={user?.id}
+          userId={userId}
           placeholder="Search facilities..."
         />
       </View>
