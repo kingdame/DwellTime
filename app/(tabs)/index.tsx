@@ -1,9 +1,16 @@
 /**
  * Home Tab - Main detention tracking screen
+ * Premium UI with glass-morphism and animations
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { colors } from '../../src/constants/colors';
 import { StatusCard, DetentionTimerState, NotesInput } from '../../src/features/detention/components';
 import { useDetentionStore } from '../../src/features/detention/store';
@@ -13,12 +20,14 @@ import {
   type PhotoMetadata,
 } from '../../src/features/evidence';
 import { useCurrentUserId } from '../../src/features/auth';
-import { 
-  useStartDetention, 
+import {
+  useStartDetention,
   useEndDetention,
   useActiveDetentionEvent,
   useHistorySummary,
 } from '../../src/shared/hooks/convex';
+import { StatCard } from '../../src/shared/components/ui';
+import { spacing, typography } from '../../src/shared/theme/tokens';
 import type { Id } from '../../convex/_generated/dataModel';
 
 // Format milliseconds to HH:MM:SS
@@ -39,6 +48,7 @@ function formatCurrency(amount: number): string {
 function formatTotalTime(minutes: number): string {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
+  if (hours === 0) return `${mins}m`;
   return `${hours}h ${mins}m`;
 }
 
@@ -57,7 +67,8 @@ export default function HomeTab() {
   const endDetention = useEndDetention();
 
   // Get active event from Convex (real-time sync)
-  const activeEvent = useActiveDetentionEvent(userId);
+  // Note: activeEvent could be used to sync local state with server
+  useActiveDetentionEvent(userId);
 
   // Get today's summary from Convex
   // Memoize date range to prevent re-renders
@@ -71,7 +82,7 @@ export default function HomeTab() {
       endDate: todayEnd.getTime(),
     };
   }, []); // Only calculate once per mount
-  
+
   const summary = useHistorySummary(userId, dateRange);
 
   // Local state for photos (pending upload)
@@ -88,6 +99,20 @@ export default function HomeTab() {
     earningsFormatted: '$0.00',
     isInGracePeriod: true,
   });
+
+  // Header entrance animation
+  const headerOpacity = useSharedValue(0);
+  const headerTranslate = useSharedValue(-20);
+
+  useEffect(() => {
+    headerOpacity.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) });
+    headerTranslate.value = withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) });
+  }, [headerOpacity, headerTranslate]);
+
+  const headerStyle = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+    transform: [{ translateY: headerTranslate.value }],
+  }));
 
   // Update timer every second when tracking
   useEffect(() => {
@@ -242,14 +267,19 @@ export default function HomeTab() {
 
   return (
   <>
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={styles.header}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.background }]}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header */}
+      <Animated.View style={[styles.header, headerStyle]}>
         <Text style={[styles.title, { color: theme.textPrimary }]}>DwellTime</Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           {isTracking ? `At: ${facilityName}` : 'Track your detention time'}
         </Text>
-      </View>
+      </Animated.View>
 
+      {/* Main Status Card */}
       <StatusCard
         timerState={timerState}
         onStartTracking={handleStartTracking}
@@ -278,31 +308,44 @@ export default function HomeTab() {
         </View>
       )}
 
-      <View style={[styles.statsCard, { backgroundColor: theme.card }]}>
-        <Text style={[styles.statsTitle, { color: theme.textPrimary }]}>
+      {/* Today's Summary - Stat Cards */}
+      <View style={styles.summarySection}>
+        <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>
           Today's Summary
         </Text>
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.success }]}>
-              {formatCurrency(summary?.totalEarnings || 0)}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Earned</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.textPrimary }]}>
-              {summary?.totalEvents || 0}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Visits</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.textPrimary }]}>
-              {formatTotalTime(summary?.totalMinutes || 0)}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Total Time</Text>
-          </View>
+        <View style={styles.statsGrid}>
+          <StatCard
+            title="Earned"
+            value={formatCurrency(summary?.totalAmount || 0)}
+            icon="💰"
+            color={colors.money}
+            size="compact"
+            style={styles.statCard}
+            animationDelay={200}
+          />
+          <StatCard
+            title="Visits"
+            value={String(summary?.totalEvents || 0)}
+            icon="🏢"
+            color={theme.primary}
+            size="compact"
+            style={styles.statCard}
+            animationDelay={300}
+          />
+          <StatCard
+            title="Time"
+            value={formatTotalTime(summary?.totalDetentionMinutes || 0)}
+            icon="⏱️"
+            color={theme.textPrimary}
+            size="compact"
+            style={styles.statCard}
+            animationDelay={400}
+          />
         </View>
       </View>
+
+      {/* Bottom padding for scroll */}
+      <View style={styles.bottomPadding} />
     </ScrollView>
 
     {/* Floating Camera Button - Only shown when tracking */}
@@ -320,55 +363,45 @@ export default function HomeTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    padding: spacing.xl,
   },
   header: {
     marginTop: 60,
-    marginBottom: 24,
+    marginBottom: spacing.xxl,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: typography.size.display,
+    fontWeight: typography.weight.bold,
+    letterSpacing: typography.tracking.tight,
   },
   subtitle: {
-    fontSize: 16,
-    marginTop: 4,
-  },
-  statsCard: {
-    borderRadius: 16,
-    padding: 20,
-  },
-  statsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  statLabel: {
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: typography.size.lg,
+    marginTop: spacing.xs,
   },
   evidenceSection: {
-    marginTop: 20,
-    marginBottom: 20,
-    gap: 12,
+    marginBottom: spacing.xl,
+    gap: spacing.md,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontSize: typography.size.xl,
+    fontWeight: typography.weight.semibold,
+    marginBottom: spacing.sm,
   },
   notesContainer: {
-    marginTop: 8,
+    marginTop: spacing.sm,
+  },
+  summarySection: {
+    marginBottom: spacing.xl,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
+  statCard: {
+    flex: 1,
+  },
+  bottomPadding: {
+    height: 100,
   },
 });

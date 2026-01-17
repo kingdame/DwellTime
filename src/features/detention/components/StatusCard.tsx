@@ -1,10 +1,23 @@
 /**
- * StatusCard Component
- * Shows current tracking status with appropriate actions
+ * StatusCard Component - Premium Edition
+ * Glass-morphism card with animated tracking status
  */
 
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+  withDelay,
+  Easing,
+} from 'react-native-reanimated';
+import { useEffect } from 'react';
 import { colors } from '../../../constants/colors';
+import { GlassCard, StatusBadge, PremiumButton } from '../../../shared/components/ui';
+import { spacing, typography, radius } from '../../../shared/theme/tokens';
 import { TimerDisplay } from './TimerDisplay';
 
 export interface DetentionTimerState {
@@ -32,95 +45,161 @@ export function StatusCard({
   const theme = colors.dark;
   const isActive = timerState.isActive;
 
-  return (
-    <View style={[styles.card, { backgroundColor: theme.card }]}>
-      {/* Status Header */}
-      <View style={styles.header}>
-        <View
-          style={[
-            styles.indicator,
-            { backgroundColor: isActive ? colors.timer : theme.textSecondary },
-          ]}
-        />
-        <Text style={[styles.statusText, { color: isActive ? colors.timer : theme.textSecondary }]}>
-          {isActive ? 'Tracking Active' : 'Not Tracking'}
-        </Text>
-      </View>
+  // Animated glow for active state
+  const glowOpacity = useSharedValue(0);
 
-      {/* Content based on state */}
-      {isActive ? (
-        <>
-          <TimerDisplay
-            elapsedFormatted={timerState.elapsedFormatted}
-            detentionFormatted={timerState.detentionFormatted}
-            earningsFormatted={timerState.earningsFormatted}
-            isInGracePeriod={timerState.isInGracePeriod}
+  useEffect(() => {
+    if (isActive) {
+      glowOpacity.value = withRepeat(
+        withSequence(
+          withTiming(0.6, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.2, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      );
+    } else {
+      glowOpacity.value = withTiming(0, { duration: 300 });
+    }
+  }, [isActive, glowOpacity]);
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }));
+
+  // Entrance animation
+  const entranceOpacity = useSharedValue(0);
+  const entranceTranslate = useSharedValue(20);
+
+  useEffect(() => {
+    entranceOpacity.value = withDelay(100, withTiming(1, { duration: 400 }));
+    entranceTranslate.value = withDelay(
+      100,
+      withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) })
+    );
+  }, [entranceOpacity, entranceTranslate]);
+
+  const entranceStyle = useAnimatedStyle(() => ({
+    opacity: entranceOpacity.value,
+    transform: [{ translateY: entranceTranslate.value }],
+  }));
+
+  return (
+    <Animated.View style={[styles.wrapper, entranceStyle]}>
+      {/* Glow effect behind card when active */}
+      {isActive && (
+        <Animated.View style={[styles.glowContainer, glowStyle]}>
+          <LinearGradient
+            colors={
+              timerState.isInGracePeriod
+                ? colors.gradients.primaryGlow
+                : colors.gradients.successGlow
+            }
+            style={styles.glowGradient}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
           />
-          <TouchableOpacity
-            style={[styles.stopButton, { backgroundColor: colors.danger }]}
-            onPress={onStopTracking}
-          >
-            <Text style={styles.buttonText}>End Detention</Text>
-          </TouchableOpacity>
-        </>
-      ) : (
-        <>
-          <Text style={[styles.description, { color: theme.textSecondary }]}>
-            Start tracking when you arrive at a facility to document detention time
-          </Text>
-          <TouchableOpacity
-            style={[styles.startButton, { backgroundColor: colors.timer }]}
-            onPress={onStartTracking}
-          >
-            <Text style={styles.buttonText}>Start Tracking</Text>
-          </TouchableOpacity>
-        </>
+        </Animated.View>
       )}
-    </View>
+
+      <GlassCard padding="xxl">
+        {/* Status Header */}
+        <View style={styles.header}>
+          <StatusBadge
+            status={isActive ? (timerState.isInGracePeriod ? 'info' : 'active') : 'neutral'}
+            label={
+              isActive
+                ? timerState.isInGracePeriod
+                  ? 'Grace Period'
+                  : 'Earning'
+                : 'Ready'
+            }
+            pulse={isActive}
+            size="medium"
+          />
+        </View>
+
+        {/* Content based on state */}
+        {isActive ? (
+          <>
+            <TimerDisplay
+              elapsedFormatted={timerState.elapsedFormatted}
+              detentionFormatted={timerState.detentionFormatted}
+              earningsFormatted={timerState.earningsFormatted}
+              isInGracePeriod={timerState.isInGracePeriod}
+            />
+            <View style={styles.buttonContainer}>
+              <PremiumButton
+                title="End Detention"
+                onPress={onStopTracking}
+                variant="danger"
+                size="large"
+                fullWidth
+              />
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.idleContent}>
+              <Text style={[styles.idleTitle, { color: theme.textPrimary }]}>
+                Ready to Track
+              </Text>
+              <Text style={[styles.description, { color: theme.textSecondary }]}>
+                Start tracking when you arrive at a facility to document detention
+                time and earn your money.
+              </Text>
+            </View>
+            <View style={styles.buttonContainer}>
+              <PremiumButton
+                title="Start Tracking"
+                onPress={onStartTracking}
+                variant="primary"
+                size="large"
+                fullWidth
+              />
+            </View>
+          </>
+        )}
+      </GlassCard>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
+  wrapper: {
+    position: 'relative',
+    marginBottom: spacing.xl,
+  },
+  glowContainer: {
+    position: 'absolute',
+    top: -20,
+    left: -20,
+    right: -20,
+    bottom: -20,
+    zIndex: -1,
+  },
+  glowGradient: {
+    flex: 1,
+    borderRadius: radius.xxl,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.lg,
   },
-  indicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 8,
+  idleContent: {
+    paddingVertical: spacing.xxl,
   },
-  statusText: {
-    fontSize: 18,
-    fontWeight: '600',
+  idleTitle: {
+    fontSize: typography.size.xxl,
+    fontWeight: typography.weight.bold,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
   },
   description: {
-    fontSize: 16,
-    marginBottom: 16,
-    lineHeight: 22,
+    fontSize: typography.size.lg,
+    lineHeight: typography.size.lg * typography.leading.relaxed,
+    textAlign: 'center',
   },
-  startButton: {
-    height: 56,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stopButton: {
-    height: 56,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
+  buttonContainer: {
+    marginTop: spacing.lg,
   },
 });
