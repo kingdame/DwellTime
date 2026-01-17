@@ -75,3 +75,10 @@ export { PaymentFollowUpModal } from './components/PaymentFollowUpModal';
 export { FacilityPreviewCard } from './components/FacilityPreviewCard';
 export { FacilityLookup } from './components/FacilityLookup';
 export { TruckEntranceCard } from './components/TruckEntranceCard';
+
+// New Premium Components
+export { FacilityReviewModal } from './components/FacilityReviewModal';
+export { AmenitiesDisplay, AmenitiesCompact } from './components/AmenitiesDisplay';
+export { AmenitiesEditModal } from './components/AmenitiesEditModal';
+export { FacilityDetailScreen } from './components/FacilityDetailScreen';
+export { FacilityMapView } from './components/FacilityMapView';
