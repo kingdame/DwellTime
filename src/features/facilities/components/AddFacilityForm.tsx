@@ -15,9 +15,20 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { colors } from '@/constants/colors';
-import { useCreateFacility } from '../hooks/useFacilities';
-import type { FacilityCreateInput } from '../services/facilityService';
+import { useCreateFacility } from '../hooks/useFacilitiesConvex';
 import type { Facility } from '@/shared/types';
+
+// Local type for create input
+interface FacilityCreateInput {
+  name: string;
+  address: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  lat: number;
+  lng: number;
+  facilityType: 'shipper' | 'receiver' | 'both' | 'unknown';
+}
 
 interface AddFacilityFormProps {
   currentLocation?: { lat: number; lng: number } | null;

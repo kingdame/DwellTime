@@ -2,7 +2,7 @@
  * Home Tab - Main detention tracking screen
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { colors } from '../../src/constants/colors';
 import { StatusCard, DetentionTimerState, NotesInput } from '../../src/features/detention/components';
@@ -60,12 +60,19 @@ export default function HomeTab() {
   const activeEvent = useActiveDetentionEvent(userId);
 
   // Get today's summary from Convex
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const summary = useHistorySummary(userId, {
-    startDate: todayStart.getTime(),
-    endDate: Date.now(),
-  });
+  // Memoize date range to prevent re-renders
+  const dateRange = useMemo(() => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    return {
+      startDate: todayStart.getTime(),
+      endDate: todayEnd.getTime(),
+    };
+  }, []); // Only calculate once per mount
+  
+  const summary = useHistorySummary(userId, dateRange);
 
   // Local state for photos (pending upload)
   const [photos, setPhotos] = useState<PhotoMetadata[]>([]);

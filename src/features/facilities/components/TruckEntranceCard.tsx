@@ -20,12 +20,9 @@ import {
   extractTruckEntranceInfo,
   getVerificationStatus,
 } from '@/shared/types/truck-entrance';
-import {
-  useSubmitTruckEntranceReport,
-  useConfirmTruckEntrance,
-  useReportTruckEntranceIncorrect,
-  useHasUserReported,
-} from '../hooks/useTruckEntrance';
+import { useUpdateTruckEntrance } from '../hooks/useFacilitiesConvex';
+import { useAuthStore } from '@/features/auth';
+import type { Id } from '@/convex/_generated/dataModel';
 
 interface TruckEntranceCardProps {
   facility: {
@@ -47,18 +44,17 @@ interface TruckEntranceCardProps {
 
 function AddEntranceForm({
   facilityId,
-  userId,
   onClose,
 }: {
-  facilityId: string;
-  userId: string | null;
+  facilityId: Id<"facilities">;
   onClose: () => void;
 }) {
   const theme = colors.dark;
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const submitReport = useSubmitTruckEntranceReport(userId);
+  const updateTruckEntrance = useUpdateTruckEntrance();
 
   const handleSubmit = async () => {
     if (!address.trim()) {
@@ -66,17 +62,19 @@ function AddEntranceForm({
       return;
     }
 
+    setIsSubmitting(true);
     try {
-      await submitReport.mutateAsync({
-        facility_id: facilityId,
-        report_type: 'new',
-        entrance_different: true,
-        entrance_address: address.trim(),
-        entrance_notes: notes.trim() || undefined,
+      await updateTruckEntrance({
+        facilityId,
+        truckEntranceDifferent: true,
+        truckEntranceAddress: address.trim(),
+        truckEntranceNotes: notes.trim() || undefined,
       });
       onClose();
     } catch {
       Alert.alert('Error', 'Failed to submit truck entrance info');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -117,10 +115,10 @@ function AddEntranceForm({
         <TouchableOpacity
           style={[styles.submitButton, { backgroundColor: theme.primary }]}
           onPress={handleSubmit}
-          disabled={submitReport.isPending}
+          disabled={isSubmitting}
         >
           <Text style={styles.submitButtonText}>
-            {submitReport.isPending ? 'Submitting...' : 'Submit'}
+            {isSubmitting ? 'Submitting...' : 'Submit'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -131,14 +129,15 @@ function AddEntranceForm({
 export function TruckEntranceCard({ facility, userId, compact = false }: TruckEntranceCardProps) {
   const theme = colors.dark;
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   const hasEntrance = hasTruckEntranceInfo(facility);
   const entranceInfo = extractTruckEntranceInfo(facility);
   const verificationStatus = getVerificationStatus(entranceInfo.verifiedCount);
 
-  const { data: hasReported } = useHasUserReported(userId, facility.id);
-  const confirmMutation = useConfirmTruckEntrance(userId);
-  const reportIncorrectMutation = useReportTruckEntranceIncorrect(userId);
+  // Simplified - no hasReported tracking for now
+  const hasReported = false;
+  const updateTruckEntrance = useUpdateTruckEntrance();
 
   const handleGetDirections = () => {
     const lat = entranceInfo.lat || facility.lat;
@@ -169,11 +168,19 @@ export function TruckEntranceCard({ facility, userId, compact = false }: TruckEn
   };
 
   const handleConfirm = async () => {
+    setIsConfirming(true);
     try {
-      await confirmMutation.mutateAsync(facility.id);
+      // Increment verified count
+      const newCount = (entranceInfo.verifiedCount || 0) + 1;
+      await updateTruckEntrance({
+        facilityId: facility.id as Id<"facilities">,
+        truckEntranceVerifiedCount: newCount,
+      });
       Alert.alert('Thanks!', 'Your confirmation helps other drivers.');
     } catch {
       Alert.alert('Error', 'Failed to confirm truck entrance');
+    } finally {
+      setIsConfirming(false);
     }
   };
 
@@ -188,7 +195,13 @@ export function TruckEntranceCard({ facility, userId, compact = false }: TruckEn
           style: 'destructive',
           onPress: async () => {
             try {
-              await reportIncorrectMutation.mutateAsync({ facilityId: facility.id });
+              // Clear the entrance info if reported incorrect
+              await updateTruckEntrance({
+                facilityId: facility.id as Id<"facilities">,
+                truckEntranceDifferent: false,
+                truckEntranceAddress: undefined,
+                truckEntranceVerifiedCount: 0,
+              });
               Alert.alert('Thanks!', 'We\'ll review the truck entrance info.');
             } catch {
               Alert.alert('Error', 'Failed to submit report');
@@ -203,8 +216,7 @@ export function TruckEntranceCard({ facility, userId, compact = false }: TruckEn
   if (showAddForm) {
     return (
       <AddEntranceForm
-        facilityId={facility.id}
-        userId={userId}
+        facilityId={facility.id as Id<"facilities">}
         onClose={() => setShowAddForm(false)}
       />
     );
@@ -277,7 +289,7 @@ export function TruckEntranceCard({ facility, userId, compact = false }: TruckEn
                 <TouchableOpacity
                   style={[styles.feedbackButton, { borderColor: theme.success }]}
                   onPress={handleConfirm}
-                  disabled={confirmMutation.isPending}
+                  disabled={isConfirming}
                 >
                   <Text style={[styles.feedbackButtonText, { color: theme.success }]}>
                     ✓ Confirm
@@ -286,7 +298,6 @@ export function TruckEntranceCard({ facility, userId, compact = false }: TruckEn
                 <TouchableOpacity
                   style={[styles.feedbackButton, { borderColor: theme.danger }]}
                   onPress={handleReportIncorrect}
-                  disabled={reportIncorrectMutation.isPending}
                 >
                   <Text style={[styles.feedbackButtonText, { color: theme.danger }]}>
                     ✗ Wrong

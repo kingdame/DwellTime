@@ -15,8 +15,9 @@ import {
   Alert,
 } from 'react-native';
 import { colors } from '@/constants/colors';
-import { useCreateInvoice } from '../hooks/useInvoices';
+import { useCreateInvoice } from '../hooks/useInvoicesConvex';
 import type { DetentionRecord } from '@/features/history';
+import type { Id } from '@/convex/_generated/dataModel';
 
 interface CreateInvoiceModalProps {
   userId: string;

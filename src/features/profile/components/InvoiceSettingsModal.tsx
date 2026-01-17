@@ -45,7 +45,7 @@ export function InvoiceSettingsModal({
   onSuccess,
 }: InvoiceSettingsModalProps) {
   const theme = colors.dark;
-  const updateProfile = useUpdateProfile(userId);
+  const updateProfile = useUpdateProfile();
 
   const [companyName, setCompanyName] = useState(currentCompanyName || '');
   const [invoiceTerms, setInvoiceTerms] = useState(currentInvoiceTerms || '');
@@ -63,12 +63,12 @@ export function InvoiceSettingsModal({
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (companyName.length > VALIDATION_RULES.company_name.maxLength) {
-      newErrors.company_name = `Company name cannot exceed ${VALIDATION_RULES.company_name.maxLength} characters`;
+    if (companyName.length > VALIDATION_RULES.companyName.maxLength) {
+      newErrors.companyName = `Company name cannot exceed ${VALIDATION_RULES.companyName.maxLength} characters`;
     }
 
-    if (invoiceTerms.length > VALIDATION_RULES.invoice_terms.maxLength) {
-      newErrors.invoice_terms = `Invoice terms cannot exceed ${VALIDATION_RULES.invoice_terms.maxLength} characters`;
+    if (invoiceTerms.length > VALIDATION_RULES.invoiceTerms.maxLength) {
+      newErrors.invoiceTerms = `Invoice terms cannot exceed ${VALIDATION_RULES.invoiceTerms.maxLength} characters`;
     }
 
     setErrors(newErrors);
@@ -78,25 +78,16 @@ export function InvoiceSettingsModal({
   const handleSave = async () => {
     if (!validateForm()) return;
 
-    const updates: ProfileUpdateInput = {
-      company_name: companyName.trim() || undefined,
-      invoice_terms: invoiceTerms.trim() || undefined,
-    };
-
     try {
-      const result = await updateProfile.mutateAsync(updates);
+      await updateProfile.mutateAsync({
+        userId: userId as any, // Cast to handle string vs Id type
+        companyName: companyName.trim() || undefined,
+        invoiceTerms: invoiceTerms.trim() || undefined,
+      });
 
-      if (result.success) {
-        Alert.alert('Saved', 'Invoice settings updated successfully');
-        onSuccess?.();
-        onClose();
-      } else if (result.errors) {
-        const errorMap: Record<string, string> = {};
-        result.errors.forEach((e) => {
-          errorMap[e.field] = e.message;
-        });
-        setErrors(errorMap);
-      }
+      Alert.alert('Saved', 'Invoice settings updated successfully');
+      onSuccess?.();
+      onClose();
     } catch (error) {
       Alert.alert('Error', error instanceof Error ? error.message : 'Failed to save');
     }
@@ -157,17 +148,17 @@ export function InvoiceSettingsModal({
               onChangeText={setCompanyName}
               placeholder="Your Company, LLC"
               placeholderTextColor={theme.textDisabled}
-              maxLength={VALIDATION_RULES.company_name.maxLength}
+              maxLength={VALIDATION_RULES.companyName.maxLength}
             />
 
-            {errors.company_name && (
+            {errors.companyName && (
               <Text style={[styles.errorText, { color: theme.error }]}>
-                {errors.company_name}
+                {errors.companyName}
               </Text>
             )}
 
             <Text style={[styles.charCount, { color: theme.textDisabled }]}>
-              {companyName.length}/{VALIDATION_RULES.company_name.maxLength}
+              {companyName.length}/{VALIDATION_RULES.companyName.maxLength}
             </Text>
           </View>
 
@@ -192,17 +183,17 @@ export function InvoiceSettingsModal({
               placeholderTextColor={theme.textDisabled}
               multiline
               numberOfLines={4}
-              maxLength={VALIDATION_RULES.invoice_terms.maxLength}
+              maxLength={VALIDATION_RULES.invoiceTerms.maxLength}
             />
 
-            {errors.invoice_terms && (
+            {errors.invoiceTerms && (
               <Text style={[styles.errorText, { color: theme.error }]}>
-                {errors.invoice_terms}
+                {errors.invoiceTerms}
               </Text>
             )}
 
             <Text style={[styles.charCount, { color: theme.textDisabled }]}>
-              {invoiceTerms.length}/{VALIDATION_RULES.invoice_terms.maxLength}
+              {invoiceTerms.length}/{VALIDATION_RULES.invoiceTerms.maxLength}
             </Text>
 
             {/* Quick Templates */}

@@ -50,7 +50,7 @@ export default function ProfileTab() {
 
   const { percentage } = useProfileCompletion(user);
 
-  // Handle sign out
+  // Handle sign out - ALL HOOKS MUST BE BEFORE ANY EARLY RETURNS
   const handleSignOut = useCallback(async () => {
     Alert.alert(
       'Sign Out',
@@ -68,6 +68,30 @@ export default function ProfileTab() {
       ]
     );
   }, [signOut, router]);
+
+  const handleExportData = useCallback(() => {
+    Alert.alert(
+      'Export Data',
+      'Export all your detention records and invoices?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Export',
+          onPress: () => {
+            Alert.alert('Coming Soon', 'Visit the History tab to export your data');
+          },
+        },
+      ]
+    );
+  }, []);
+
+  const handleHelp = useCallback(() => {
+    Alert.alert(
+      'Help & Support',
+      'Need assistance?\n\nEmail: support@dwelltime.app\n\nVisit our website for FAQs and guides.',
+      [{ text: 'OK' }]
+    );
+  }, []);
 
   // Show loading if user not loaded
   if (convexUser === undefined) {
@@ -100,30 +124,6 @@ export default function ProfileTab() {
       </View>
     );
   }
-
-  const handleExportData = useCallback(() => {
-    Alert.alert(
-      'Export Data',
-      'Export all your detention records and invoices?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Export',
-          onPress: () => {
-            Alert.alert('Coming Soon', 'Visit the History tab to export your data');
-          },
-        },
-      ]
-    );
-  }, []);
-
-  const handleHelp = useCallback(() => {
-    Alert.alert(
-      'Help & Support',
-      'Need assistance?\n\nEmail: support@dwelltime.app\n\nVisit our website for FAQs and guides.',
-      [{ text: 'OK' }]
-    );
-  }, []);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>

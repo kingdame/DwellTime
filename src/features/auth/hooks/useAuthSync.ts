@@ -9,7 +9,7 @@
  * 4. Clears auth store on sign-out
  */
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuth, useUser as useClerkUser } from '@clerk/clerk-expo';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -22,7 +22,11 @@ import { useAuthStore } from '../store';
 export function useAuthSync() {
   const { isSignedIn, isLoaded: authLoaded } = useAuth();
   const { user: clerkUser, isLoaded: userLoaded } = useClerkUser();
-  const { setUserProfile, setLoading, clearUserProfile } = useAuthStore();
+  
+  // Get store functions using separate selectors for stability
+  const setUserProfile = useAuthStore((state) => state.setUserProfile);
+  const setLoading = useAuthStore((state) => state.setLoading);
+  const clearUserProfile = useAuthStore((state) => state.clearUserProfile);
 
   // Get or create user mutation
   const getOrCreate = useMutation(api.users.getOrCreate);
@@ -34,49 +38,52 @@ export function useAuthSync() {
     clerkId ? { clerkId } : 'skip'
   );
 
-  // Sync user on sign-in
-  const syncUser = useCallback(async () => {
-    if (!clerkUser) return;
+  // Track if we've already synced to prevent multiple calls
+  const hasSynced = useRef(false);
+  const lastConvexUserId = useRef<string | null>(null);
 
-    setLoading(true);
-
-    try {
-      const user = await getOrCreate({
-        clerkId: clerkUser.id,
-        email: clerkUser.emailAddresses[0]?.emailAddress || '',
-        name: clerkUser.fullName || clerkUser.firstName || undefined,
-      });
-
-      if (user) {
-        setUserProfile({
-          id: user._id,
-          email: user.email,
-          name: user.name,
-          companyName: user.companyName,
-          subscriptionTier: user.subscriptionTier || 'free',
-        });
-      }
-    } catch (error) {
-      console.error('Failed to sync user:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [clerkUser, getOrCreate, setUserProfile, setLoading]);
-
-  // Handle auth state changes
+  // Handle auth state changes and sync user
   useEffect(() => {
     if (!authLoaded || !userLoaded) return;
 
-    if (isSignedIn && clerkUser) {
-      syncUser();
-    } else if (!isSignedIn) {
+    if (isSignedIn && clerkUser && !hasSynced.current) {
+      hasSynced.current = true;
+      setLoading(true);
+
+      getOrCreate({
+        clerkId: clerkUser.id,
+        email: clerkUser.emailAddresses[0]?.emailAddress || '',
+        name: clerkUser.fullName || clerkUser.firstName || undefined,
+      })
+        .then((user) => {
+          if (user) {
+            setUserProfile({
+              id: user._id,
+              email: user.email,
+              name: user.name,
+              companyName: user.companyName,
+              subscriptionTier: user.subscriptionTier || 'free',
+            });
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to sync user:', error);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } else if (!isSignedIn && hasSynced.current) {
+      hasSynced.current = false;
+      lastConvexUserId.current = null;
       clearUserProfile();
     }
-  }, [isSignedIn, authLoaded, userLoaded, clerkUser, syncUser, clearUserProfile]);
+  }, [isSignedIn, authLoaded, userLoaded, clerkUser?.id, getOrCreate, setUserProfile, setLoading, clearUserProfile]);
 
   // Keep auth store in sync with Convex user (real-time updates)
+  // Only update if the convexUser ID changed to prevent infinite loops
   useEffect(() => {
-    if (convexUser) {
+    if (convexUser && convexUser._id !== lastConvexUserId.current) {
+      lastConvexUserId.current = convexUser._id;
       setUserProfile({
         id: convexUser._id,
         email: convexUser.email,

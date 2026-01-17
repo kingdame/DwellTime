@@ -54,6 +54,30 @@ export function useAgingSummary(userId: Id<"users"> | undefined) {
   );
 }
 
+/**
+ * Get invoice summary (calculates from invoices list)
+ * Returns summary data with totals by status
+ */
+export function useInvoiceSummary(userId: Id<"users"> | string | undefined) {
+  const invoices = useInvoices(userId as Id<"users"> | undefined);
+  
+  if (!invoices) return undefined;
+  
+  // Calculate summary from invoices
+  const draft = invoices.filter(i => i.status === 'draft');
+  const sent = invoices.filter(i => i.status === 'sent');
+  const paid = invoices.filter(i => i.status === 'paid');
+  
+  return {
+    totalDraft: draft.length,
+    totalSent: sent.length,
+    totalPaid: paid.length,
+    amountDraft: draft.reduce((sum, i) => sum + (i.totalAmount || 0), 0),
+    amountSent: sent.reduce((sum, i) => sum + (i.totalAmount || 0), 0),
+    amountPaid: paid.reduce((sum, i) => sum + (i.totalAmount || 0), 0),
+  };
+}
+
 // ============================================================================
 // INVOICE MUTATIONS
 // ============================================================================

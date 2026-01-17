@@ -14,9 +14,10 @@ import {
   RefreshControl,
 } from 'react-native';
 import { colors } from '@/constants/colors';
-import { useInvoices, useInvoiceSummary } from '../hooks/useInvoices';
+import { useInvoices, useInvoiceSummary } from '../hooks/useInvoicesConvex';
 import { InvoiceCard } from './InvoiceCard';
 import type { Invoice } from '@/shared/types';
+import type { Id } from '@/convex/_generated/dataModel';
 
 interface InvoiceListProps {
   userId: string;
@@ -43,7 +44,9 @@ function formatCurrency(amount: number): string {
 
 export function InvoiceSummaryCard({ userId }: { userId: string }) {
   const theme = colors.dark;
-  const { data: summary, isLoading } = useInvoiceSummary(userId);
+  // Convex hook returns data directly or undefined while loading
+  const summary = useInvoiceSummary(userId);
+  const isLoading = summary === undefined;
 
   if (isLoading || !summary) {
     return (
@@ -89,17 +92,15 @@ export function InvoiceList({ userId, onInvoicePress }: InvoiceListProps) {
   const theme = colors.dark;
   const [filter, setFilter] = useState<FilterStatus>('all');
 
-  const {
-    data: invoices,
-    isLoading,
-    isError,
-    refetch,
-    isRefetching,
-  } = useInvoices(userId, filter === 'all' ? undefined : filter);
+  // Convex hook returns data directly
+  const invoices = useInvoices(userId as Id<"users"> | undefined, filter === 'all' ? undefined : filter);
+  const isLoading = invoices === undefined;
+  const isError = false; // Convex doesn't expose error state directly
+  const isRefetching = false; // Convex auto-updates
 
   const handleRefresh = useCallback(() => {
-    refetch();
-  }, [refetch]);
+    // Convex auto-syncs, no manual refetch needed
+  }, []);
 
   const renderItem = useCallback(
     ({ item }: { item: Invoice }) => (

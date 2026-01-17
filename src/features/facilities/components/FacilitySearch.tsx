@@ -14,9 +14,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { colors } from '@/constants/colors';
-import { useFacilitySearch, useNearbyFacilities, useRecentFacilities } from '../hooks/useFacilities';
+import { useSearchFacilities, useNearbyFacilities } from '../hooks/useFacilitiesConvex';
 import type { Facility } from '@/shared/types';
-import type { NearbyFacility } from '../services/facilityService';
 
 interface FacilitySearchProps {
   onSelect: (facility: Facility) => void;
@@ -92,28 +91,22 @@ export function FacilitySearch({
   const [query, setQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
 
-  // Search query
-  const {
-    data: searchResults,
-    isLoading: isSearching,
-  } = useFacilitySearch(query, query.length >= 2);
+  // Search query - Convex returns data directly or undefined
+  const searchResults = useSearchFacilities(query.length >= 2 ? query : undefined);
+  const isSearching = searchResults === undefined && query.length >= 2;
 
-  // Nearby facilities
-  const {
-    data: nearbyFacilities,
-    isLoading: isLoadingNearby,
-  } = useNearbyFacilities(
-    currentLocation?.lat ?? null,
-    currentLocation?.lng ?? null,
-    5000,
+  // Nearby facilities - Convex returns data directly or undefined
+  const nearbyFacilities = useNearbyFacilities(
+    currentLocation?.lat,
+    currentLocation?.lng,
+    5000, // 5km radius
     10
   );
+  const isLoadingNearby = nearbyFacilities === undefined && currentLocation !== null;
 
-  // Recent facilities
-  const {
-    data: recentFacilities,
-    isLoading: isLoadingRecent,
-  } = useRecentFacilities(userId ?? null, 5);
+  // For recent facilities, we'll skip for now (would need detention history)
+  const recentFacilities: Facility[] = [];
+  const isLoadingRecent = false;
 
   const handleSelect = useCallback((facility: Facility) => {
     setQuery('');
@@ -125,7 +118,7 @@ export function FacilitySearch({
   const isSearchMode = query.length >= 2;
 
   // Determine what to display
-  let displayData: (Facility | NearbyFacility)[] = [];
+  let displayData: Facility[] = [];
   let sectionTitle = '';
   let isLoading = false;
 

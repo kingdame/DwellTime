@@ -53,7 +53,7 @@ export function DetentionSettingsModal({
   onSuccess,
 }: DetentionSettingsModalProps) {
   const theme = colors.dark;
-  const updateProfile = useUpdateProfile(userId);
+  const updateProfile = useUpdateProfile();
 
   const [hourlyRate, setHourlyRate] = useState(currentHourlyRate.toString());
   const [gracePeriod, setGracePeriod] = useState(currentGracePeriod);
@@ -73,11 +73,11 @@ export function DetentionSettingsModal({
 
     const rate = parseFloat(hourlyRate);
     if (isNaN(rate)) {
-      newErrors.hourly_rate = 'Please enter a valid number';
-    } else if (rate < VALIDATION_RULES.hourly_rate.min) {
-      newErrors.hourly_rate = `Minimum rate is $${VALIDATION_RULES.hourly_rate.min}/hr`;
-    } else if (rate > VALIDATION_RULES.hourly_rate.max) {
-      newErrors.hourly_rate = `Maximum rate is $${VALIDATION_RULES.hourly_rate.max}/hr`;
+      newErrors.hourlyRate = 'Please enter a valid number';
+    } else if (rate < VALIDATION_RULES.hourlyRate.min) {
+      newErrors.hourlyRate = `Minimum rate is $${VALIDATION_RULES.hourlyRate.min}/hr`;
+    } else if (rate > VALIDATION_RULES.hourlyRate.max) {
+      newErrors.hourlyRate = `Maximum rate is $${VALIDATION_RULES.hourlyRate.max}/hr`;
     }
 
     setErrors(newErrors);
@@ -87,25 +87,16 @@ export function DetentionSettingsModal({
   const handleSave = async () => {
     if (!validateForm()) return;
 
-    const updates: ProfileUpdateInput = {
-      hourly_rate: parseFloat(hourlyRate),
-      grace_period_minutes: gracePeriod,
-    };
-
     try {
-      const result = await updateProfile.mutateAsync(updates);
+      await updateProfile.mutateAsync({
+        userId: userId as any, // Cast to handle string vs Id type
+        hourlyRate: parseFloat(hourlyRate),
+        gracePeriodMinutes: gracePeriod,
+      });
 
-      if (result.success) {
-        Alert.alert('Saved', 'Detention settings updated successfully');
-        onSuccess?.();
-        onClose();
-      } else if (result.errors) {
-        const errorMap: Record<string, string> = {};
-        result.errors.forEach((e) => {
-          errorMap[e.field] = e.message;
-        });
-        setErrors(errorMap);
-      }
+      Alert.alert('Saved', 'Detention settings updated successfully');
+      onSuccess?.();
+      onClose();
     } catch (error) {
       Alert.alert('Error', error instanceof Error ? error.message : 'Failed to save');
     }
@@ -172,15 +163,15 @@ export function DetentionSettingsModal({
               <Text style={[styles.rateSuffix, { color: theme.textSecondary }]}>/hr</Text>
             </View>
 
-            {errors.hourly_rate && (
+            {errors.hourlyRate && (
               <Text style={[styles.errorText, { color: theme.error }]}>
-                {errors.hourly_rate}
+                {errors.hourlyRate}
               </Text>
             )}
 
             <Text style={[styles.hint, { color: theme.textDisabled }]}>
-              Industry standard: $50-100/hr. Min: ${VALIDATION_RULES.hourly_rate.min}, Max: $
-              {VALIDATION_RULES.hourly_rate.max}
+              Industry standard: $50-100/hr. Min: ${VALIDATION_RULES.hourlyRate.min}, Max: $
+              {VALIDATION_RULES.hourlyRate.max}
             </Text>
           </View>
 

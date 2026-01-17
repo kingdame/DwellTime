@@ -36,6 +36,7 @@ export {
   useInvoice,
   useInvoiceByNumber,
   useAgingSummary,
+  useInvoiceSummary,
   useCreateInvoice,
   useUpdateInvoice,
   useSetInvoicePdfUrl,

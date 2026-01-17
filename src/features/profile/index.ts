@@ -33,6 +33,9 @@ export {
   useCancelSubscription,
 } from './hooks/useProfileConvex';
 
+// Profile Completion Hook
+export { useProfileCompletion } from './hooks/useProfileCompletion';
+
 // Components
 export { EditableSettingRow, SettingSectionHeader } from './components/EditableSettingRow';
 export { DetentionSettingsModal } from './components/DetentionSettingsModal';

@@ -8,8 +8,9 @@ import { colors } from '@/constants/colors';
 import type { Facility, FacilityReview } from '@/shared/types';
 import { PaymentReliabilityBadge } from './PaymentReliabilityCard';
 import { TruckEntranceCard } from './TruckEntranceCard';
-import { useFacilityReliability } from '../hooks/usePaymentStats';
-import { useAuth } from '@/features/auth';
+import { useFacilityPaymentStats } from '../hooks/useFacilitiesConvex';
+import { useAuthStore } from '@/features/auth';
+import type { Id } from '@/convex/_generated/dataModel';
 
 // Extended facility type with truck entrance fields
 interface FacilityWithTruckEntrance extends Facility {
@@ -132,8 +133,20 @@ export function FacilityPreviewCard({
   onGetDirections,
 }: FacilityPreviewCardProps) {
   const theme = colors.dark;
-  const { user } = useAuth();
-  const { data: reliability } = useFacilityReliability(facility.id);
+  const { userProfile } = useAuthStore();
+  const paymentStats = useFacilityPaymentStats(facility.id as Id<"facilities"> | undefined);
+  const reliability = paymentStats ? {
+    paymentRate: paymentStats.paymentRate,
+    avgPaymentDays: paymentStats.avgPaymentDays,
+    reliability: paymentStats.paymentRate >= 90 ? 'excellent' as const :
+                 paymentStats.paymentRate >= 75 ? 'good' as const :
+                 paymentStats.paymentRate >= 50 ? 'fair' as const :
+                 paymentStats.totalReports > 0 ? 'poor' as const : 'unknown' as const,
+    reliabilityColor: paymentStats.paymentRate >= 90 ? colors.dark.success :
+                      paymentStats.paymentRate >= 75 ? colors.dark.primary :
+                      paymentStats.paymentRate >= 50 ? colors.dark.warning :
+                      colors.dark.danger,
+  } : null;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>

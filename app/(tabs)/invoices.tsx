@@ -22,14 +22,13 @@ import {
   CreateInvoiceModal,
   SendInvoiceModal,
   SavedContactsManager,
-  useInvoiceDetails,
-  useUpdateInvoiceStatus,
-  useShareInvoice,
+  useInvoice as useInvoiceDetails,
   useSendInvoiceEmail,
-  useFrequentContacts,
+  useMostUsedContacts as useFrequentContacts,
   type InvoiceWithDetails,
   type Contact,
 } from '../../src/features/invoices';
+import { useUpdateInvoice as useUpdateInvoiceStatus } from '../../src/features/invoices';
 import { useCurrentUserId, useCurrentUser } from '../../src/features/auth';
 import { useDetentionHistory } from '../../src/shared/hooks/convex';
 import type { Invoice } from '../../src/shared/types';
@@ -81,13 +80,13 @@ function InvoiceDetailModal({
   onSendPress: (invoice: InvoiceWithDetails) => void;
 }) {
   const theme = colors.dark;
-  const { data: invoice, isLoading } = useInvoiceDetails(invoiceId);
+  const invoice = useInvoiceDetails(invoiceId as Id<"invoices"> | undefined);
+  const isLoading = invoice === undefined;
   const updateStatus = useUpdateInvoiceStatus();
-  const shareInvoice = useShareInvoice();
 
   const handleMarkSent = useCallback(async () => {
     try {
-      await updateStatus.mutateAsync({ invoiceId, status: 'sent' });
+      await updateStatus({ id: invoiceId as Id<"invoices">, status: 'sent' });
       onStatusUpdate();
       Alert.alert('Success', 'Invoice marked as sent');
     } catch (error) {
@@ -97,7 +96,7 @@ function InvoiceDetailModal({
 
   const handleMarkPaid = useCallback(async () => {
     try {
-      await updateStatus.mutateAsync({ invoiceId, status: 'paid' });
+      await updateStatus({ id: invoiceId as Id<"invoices">, status: 'paid' });
       onStatusUpdate();
       Alert.alert('Success', 'Invoice marked as paid');
     } catch (error) {
@@ -108,11 +107,12 @@ function InvoiceDetailModal({
   const handleShare = useCallback(async () => {
     if (!invoice) return;
     try {
-      await shareInvoice.mutateAsync({ invoice });
+      // TODO: Implement share functionality with PDF generation
+      Alert.alert('Coming Soon', 'Share functionality will be available soon');
     } catch (error) {
       Alert.alert('Error', error instanceof Error ? error.message : 'Failed to share');
     }
-  }, [invoice, shareInvoice]);
+  }, [invoice]);
 
   const handleSendEmail = useCallback(() => {
     if (invoice) {
@@ -308,12 +308,13 @@ export default function InvoicesTab() {
   }));
 
   // Fetch frequent contacts for send modal
-  const { data: frequentContacts } = useFrequentContacts(5);
+  // useMostUsedContacts returns data directly (or undefined while loading)
+  const frequentContacts = useFrequentContacts(userId, 5);
   const sendInvoiceEmail = useSendInvoiceEmail();
 
   // Transform EmailContact to Contact type for SendInvoiceModal
   const recentContacts: Contact[] = (frequentContacts || []).map((contact) => ({
-    id: contact.id,
+    id: contact._id,
     name: contact.name || contact.email.split('@')[0],
     email: contact.email,
     company: contact.company || undefined,

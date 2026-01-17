@@ -6,7 +6,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { colors } from '@/constants/colors';
-import { useFacilityReliability } from '../hooks/usePaymentStats';
+import { useFacilityPaymentStats } from '../hooks/useFacilitiesConvex';
+import type { Id } from '@/convex/_generated/dataModel';
 
 interface PaymentReliabilityCardProps {
   facilityId: string;
@@ -18,7 +19,24 @@ export function PaymentReliabilityCard({
   compact = false,
 }: PaymentReliabilityCardProps) {
   const theme = colors.dark;
-  const { data: reliability, isLoading } = useFacilityReliability(facilityId);
+  // Convex hooks return data directly or undefined while loading
+  const paymentStats = useFacilityPaymentStats(facilityId as Id<"facilities"> | undefined);
+  const isLoading = paymentStats === undefined;
+  
+  // Transform payment stats to reliability format
+  const reliability = paymentStats ? {
+    paymentRate: paymentStats.paymentRate,
+    avgPaymentDays: paymentStats.avgPaymentDays,
+    totalReports: paymentStats.totalReports,
+    reliability: paymentStats.paymentRate >= 90 ? 'excellent' as const :
+                 paymentStats.paymentRate >= 75 ? 'good' as const :
+                 paymentStats.paymentRate >= 50 ? 'fair' as const :
+                 paymentStats.totalReports > 0 ? 'poor' as const : 'unknown' as const,
+    reliabilityColor: paymentStats.paymentRate >= 90 ? colors.dark.success :
+                      paymentStats.paymentRate >= 75 ? colors.dark.primary :
+                      paymentStats.paymentRate >= 50 ? colors.dark.warning :
+                      colors.dark.danger,
+  } : null;
 
   if (isLoading) {
     return (

@@ -17,10 +17,10 @@ import {
   Platform,
 } from 'react-native';
 import { colors } from '@/constants/colors';
-import { useFacilitySearch, usePopularFacilities } from '../hooks/useFacilities';
-import { useFacilityWithReviews } from '../hooks/useFacilityLookup';
+import { useSearchFacilities, useFacility, useFacilityReviews } from '../hooks/useFacilitiesConvex';
 import type { Facility } from '@/shared/types';
 import { FacilityPreviewCard } from './FacilityPreviewCard';
+import type { Id } from '@/convex/_generated/dataModel';
 
 interface FacilityLookupProps {
   onClose?: () => void;
@@ -81,21 +81,26 @@ function FacilityListItem({
 export function FacilityLookup({ onClose }: FacilityLookupProps) {
   const theme = colors.dark;
   const [query, setQuery] = useState('');
-  const [selectedFacilityId, setSelectedFacilityId] = useState<string | null>(null);
+  const [selectedFacilityId, setSelectedFacilityId] = useState<Id<"facilities"> | null>(null);
 
-  // Search query
-  const { data: searchResults, isLoading: isSearching } = useFacilitySearch(
-    query,
-    query.length >= 2
-  );
+  // Search query - Convex returns data directly
+  const searchResults = useSearchFacilities(query.length >= 2 ? query : undefined);
+  const isSearching = searchResults === undefined && query.length >= 2;
 
-  // Popular facilities when not searching
-  const { data: popularFacilities, isLoading: isLoadingPopular } = usePopularFacilities(10);
+  // Popular facilities - use facilities by type as fallback
+  const popularFacilities = useSearchFacilities(query.length < 2 ? '' : undefined);
+  const isLoadingPopular = popularFacilities === undefined && query.length < 2;
 
   // Selected facility with reviews
-  const { data: facilityData, isLoading: isLoadingDetails } = useFacilityWithReviews(
-    selectedFacilityId
-  );
+  const selectedFacility = useFacility(selectedFacilityId || undefined);
+  const facilityReviews = useFacilityReviews(selectedFacilityId || undefined);
+  const isLoadingDetails = selectedFacilityId !== null && (selectedFacility === undefined);
+  
+  // Combine facility and reviews into expected format
+  const facilityData = selectedFacility ? {
+    facility: selectedFacility,
+    reviews: facilityReviews || [],
+  } : null;
 
   const handleSelectFacility = useCallback((facility: Facility) => {
     setSelectedFacilityId(facility.id);
