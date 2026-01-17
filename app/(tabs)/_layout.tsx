@@ -9,7 +9,7 @@ import { useAuth } from '@clerk/clerk-expo';
 import { colors } from '../../src/constants/colors';
 import { useIsFleetAdmin } from '../../src/features/fleet';
 
-// Simple icon component
+// Simple icon component - only render when focused to avoid duplicate on web
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: Record<string, string> = {
     home: '🏠',
@@ -20,10 +20,14 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
     fleet: '👥',
   };
 
+  // Expo Router on web renders both focused and unfocused states
+  // We use opacity to show the correct one
   return (
-    <Text style={[styles.icon, focused && styles.iconFocused]}>
-      {icons[name] || '•'}
-    </Text>
+    <View style={styles.iconContainer}>
+      <Text style={[styles.icon, { opacity: focused ? 1 : 0.6 }]}>
+        {icons[name] || '•'}
+      </Text>
+    </View>
   );
 }
 
@@ -119,9 +123,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  iconContainer: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   icon: {
     fontSize: 20,
-    opacity: 0.6,
   },
   iconFocused: {
     opacity: 1,

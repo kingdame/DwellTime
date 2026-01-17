@@ -2,6 +2,18 @@
 
 ## Session Notes
 
+### January 17, 2026 (Session 5)
+- **Built Facility Review System & Map View**
+- **FacilityReviewModal** - Premium glass-morphism modal with 5-star ratings, 6 category ratings (wait time, staff, restrooms, parking, safety, cleanliness), comments, animated entrance
+- **AmenitiesDisplay** - Animated badge grid showing facility amenities (overnight parking, restrooms, driver lounge, water, vending, WiFi, showers) with status indicators
+- **AmenitiesEditModal** - Toggle switches for drivers to update facility amenities, crowdsourced data
+- **FacilityDetailScreen** - Comprehensive facility view with reviews, payment stats, amenities, glass cards
+- **FacilityMapView** - Native map with react-native-maps, web fallback with facility list
+- Updated Facilities tab with glass-morphism design and list/map view toggle
+- Added `react-native-maps` for native map functionality
+- All components follow premium UI design system (glass cards, design tokens, Reanimated animations)
+- Committed and pushed to GitHub (v2 branch)
+
 ### January 17, 2026 (Session 4)
 - **Fixed Runtime Errors in All 5 Tabs**
 - Fixed `useProfileCompletion` hook - created new hook for profile completion percentage
