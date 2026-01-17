@@ -1,88 +1,50 @@
 /**
- * Fleet Services
- * Exports all fleet management services
+ * Fleet Services - Utility functions only
+ *
+ * NOTE: Data operations now use Convex. Use hooks from @/shared/hooks/convex:
+ * - useFleet, useUserFleets, useCreateFleet, etc.
+ * - useFleetMembers, useAddFleetMember, etc.
+ * - useFleetInvitations, useCreateInvitation, etc.
+ * - useFleetInvoices, useCreateFleetInvoice, etc.
  */
 
-// Fleet CRUD operations
+// Fleet utility functions
 export {
-  createFleet,
-  fetchFleet,
-  updateFleet,
-  fetchFleetSummary,
-  fetchFleetEvents,
-  fetchUserFleets,
-  deleteFleet,
+  type FleetStats,
+  calculateFleetStats,
+  formatMemberRole,
+  formatMemberStatus,
+  getMemberStatusColor,
 } from './fleetService';
 
-export type {
-  Fleet,
-  FleetSettings,
-  FleetCreateInput,
-  FleetUpdateInput,
-  FleetSummary,
-  FleetEventFilters,
-  FleetEventWithMember,
-} from './fleetService';
-
-// Member management
+// Member utility functions
 export {
-  fetchFleetMembers,
-  fetchFleetMember,
-  addFleetMember,
-  updateMemberStatus,
-  updateMemberRole,
-  removeFleetMember,
-  checkMemberRole,
-  isFleetAdmin,
-  getUserMembership,
-  transferOwnership,
+  type FleetMember,
+  canManageMembers,
+  canInviteDrivers,
+  canViewAnalytics,
+  canEditSettings,
+  getEffectiveHourlyRate,
+  getEffectiveGracePeriod,
 } from './memberService';
 
-export type {
-  MemberRole,
-  MemberStatus,
-  FleetMember,
-  FleetMemberWithUser,
-  AddMemberInput,
-} from './memberService';
-
-// Invitation handling
+// Invitation utility functions
 export {
+  type FleetInvitation,
   generateInvitationCode,
-  createInvitation,
-  fetchPendingInvitations,
-  fetchInvitationByCode,
-  acceptInvitation,
-  cancelInvitation,
-  resendInvitation,
-  cleanupExpiredInvitations,
-  fetchInvitationHistory,
+  isInvitationExpired,
+  isInvitationAccepted,
+  getInvitationStatus,
+  formatExpirationTime,
+  DEFAULT_INVITATION_EXPIRY_DAYS,
+  calculateExpirationTime,
 } from './invitationService';
 
-export type {
-  InvitationStatus,
-  FleetInvitation,
-  FleetInvitationWithDetails,
-  CreateInvitationInput,
-} from './invitationService';
-
-// Team invoicing
+// Fleet invoice utility functions
 export {
-  createFleetInvoice,
-  fetchFleetInvoices,
-  fetchFleetInvoiceWithDetails,
-  updateFleetInvoiceStatus,
-  generateFleetInvoicePDF,
-  shareFleetInvoicePDF,
-  deleteFleetInvoice,
-  getFleetInvoiceSummary,
-} from './fleetInvoiceService';
-
-export type {
-  FleetInvoiceStatus,
-  FleetInvoice,
-  FleetInvoiceWithDetails,
-  MemberInvoiceDetail,
-  FleetInvoiceLineItem,
-  CreateFleetInvoiceInput,
+  type FleetInvoice,
+  generateFleetInvoiceNumber,
+  formatInvoiceStatus,
+  getInvoiceStatusColor,
+  formatDateRange,
 } from './fleetInvoiceService';

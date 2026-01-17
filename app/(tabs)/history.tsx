@@ -97,7 +97,7 @@ export default function HistoryTab() {
 
       {/* Summary Card */}
       <HistorySummaryCard
-        totalEarnings={summary?.totalEarnings ?? 0}
+        totalEarnings={summary?.totalAmount ?? 0}
         totalSessions={summary?.totalEvents ?? 0}
         label="This Month"
       />

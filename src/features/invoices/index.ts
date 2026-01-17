@@ -1,67 +1,63 @@
 /**
  * Invoices Feature Exports
+ *
+ * NOTE: Invoice data operations now use Convex hooks from @/shared/hooks/convex:
+ * - useInvoices, useInvoice, useCreateInvoice, etc.
+ * - useEmailContacts, useSendInvoiceEmail, etc.
  */
 
-// Services
+// Services - Utility functions and PDF generation
 export {
-  createInvoice,
-  fetchInvoiceWithDetails,
-  fetchUserInvoices,
-  updateInvoiceStatus,
-  deleteInvoice,
-  getInvoiceSummary,
+  type InvoiceLineItem,
+  type InvoiceWithDetails,
+  generateInvoiceNumber,
+  formatCurrency,
+  formatDate,
+  formatDuration,
   generateInvoicePdf,
   shareInvoicePdf,
-  type InvoiceLineItem,
-  type InvoiceCreateInput,
-  type InvoiceWithDetails,
+  calculateInvoiceSummary,
 } from './services/invoiceService';
 
+// Email Service - Utility functions
 export {
-  sendInvoiceEmail,
-  fetchEmailContacts,
-  saveEmailContact,
-  deleteEmailContact,
-  incrementContactUsage,
-  fetchInvoiceEmailHistory,
-  searchEmailContacts,
-  getFrequentContacts,
-  updateEmailContact,
-  fetchContactsByType,
-  getContactStats,
-  type SendInvoiceEmailInput,
+  type EmailRecipient,
   type EmailContact,
-  type EmailContactInput,
-  type InvoiceEmail,
+  isValidEmail,
+  validateRecipients,
+  formatRecipient,
+  sortContactsByUsage,
+  filterContacts,
 } from './services/emailService';
 
-// Hooks
+// Convex Hooks (re-export for convenience)
 export {
   useInvoices,
-  useInvoiceDetails,
-  useInvoiceSummary,
+  useInvoice,
+  useInvoiceByNumber,
+  useAgingSummary,
   useCreateInvoice,
-  useUpdateInvoiceStatus,
+  useUpdateInvoice,
+  useSetInvoicePdfUrl,
+  useMarkInvoiceSent,
+  useMarkInvoicePaid,
   useDeleteInvoice,
-  useShareInvoice,
-} from './hooks/useInvoices';
-
-export {
   useEmailContacts,
+  useMostUsedContacts,
   useSearchContacts,
-  useFrequentContacts,
-  useSaveContact,
-  useDeleteContact,
-  useIncrementContactUsage,
+  useUpsertContact,
   useUpdateContact,
-  useContactsByType,
-  useContactStats,
-} from './hooks/useEmailContacts';
+  useDeleteContact,
+  useGetUploadUrl,
+  useGetDownloadUrl,
+} from './hooks/useInvoicesConvex';
 
 export {
   useSendInvoiceEmail,
-  useInvoiceEmailHistory,
-} from './hooks/useSendInvoice';
+  useLogEmailSend,
+  useEmailLogs,
+  useSendAndLogEmail,
+} from './hooks/useEmailConvex';
 
 // Components
 export { InvoiceCard } from './components/InvoiceCard';

@@ -2,9 +2,4 @@
  * Billing Components
  */
 
-export {
-  PricingCard,
-  PricingComparison,
-  IntervalToggle,
-  default,
-} from './PricingCard';
+export { PricingCard, PricingComparison, IntervalToggle } from './PricingCard';

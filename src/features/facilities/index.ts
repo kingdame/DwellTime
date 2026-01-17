@@ -1,89 +1,71 @@
 /**
  * Facilities Feature Exports
+ *
+ * NOTE: Facility data operations now use Convex. Import from @/shared/hooks/convex:
+ * - useFacility(id) - Get facility by ID
+ * - useSearchFacilities(query) - Search facilities
+ * - useNearbyFacilities(lat, lng, radius) - Get nearby facilities
+ * - useFacilitiesWithTruckEntrance() - Facilities with truck entrance info
+ * - useCreateFacility() - Create facility mutation
+ * - useFacilityPaymentStats(facilityId) - Payment statistics
+ * - useCreateReview() - Create facility review
  */
 
-// Services
+// Services - Utility functions only
 export {
-  searchFacilities,
-  findNearbyFacilities,
-  getFacility,
-  createFacility,
-  isWithinGeofence,
-  detectCurrentFacility,
-  getRecentFacilities,
-  searchFacilitiesWithFilters,
-  getPopularFacilities,
-  getFacilityWithReviews,
-  GEOFENCE_RADIUS_METERS,
-  type FacilitySearchFilters,
-  type FacilityCreateInput,
-  type NearbyFacility,
+  calculateDistance,
+  sortByDistance,
+  filterByRadius,
+  formatFacilityAddress,
+  formatDistance,
+  formatWaitTime,
+  formatRating,
+  getFacilityTypeLabel,
 } from './services/facilityService';
 
-// Hooks
+// Payment Stats Service - Utility functions
 export {
-  useFacilitySearch,
-  useNearbyFacilities,
-  useFacility,
-  useDetectFacility,
-  useRecentFacilities,
-  useFacilitiesWithFilters,
-  usePopularFacilities,
-  useCreateFacility,
-} from './hooks/useFacilities';
+  type PaymentStat,
+  calculatePaymentRate,
+  formatPaymentRate,
+  formatAvgPaymentDays,
+  getPaymentReliabilityLabel,
+  getPaymentReliabilityColor,
+} from './services/paymentStatsService';
 
+// Truck Entrance Service - Types and utilities
+export {
+  type TruckEntranceReport,
+  formatReportType,
+  isValidCoordinates,
+} from './services/truckEntranceService';
+
+// Geofencing Hook
 export {
   useGeofencing,
+  GEOFENCE_RADIUS_METERS,
   type GeofenceState,
   type GeofenceEvent,
 } from './hooks/useGeofencing';
 
-// Facility Lookup Hooks
-export { useFacilityWithReviews } from './hooks/useFacilityLookup';
-
-// Truck Entrance Hooks
+// Convex Hooks (re-export for convenience)
 export {
-  useHasUserReported,
-  useUserTruckEntranceReport,
-  useFacilityTruckEntranceReports,
-  useSubmitTruckEntranceReport,
-  useConfirmTruckEntrance,
-  useReportTruckEntranceIncorrect,
-} from './hooks/useTruckEntrance';
-
-// Payment Stats Hooks
-export {
+  useFacility,
+  useSearchFacilities,
+  useFacilitiesByCityState,
+  useFacilitiesByType,
+  useNearbyFacilities,
+  useFacilitiesWithTruckEntrance,
+  useCreateFacility,
+  useUpdateFacility,
+  useUpdateTruckEntrance,
+  useFacilityReviews,
+  useUserReviews,
+  useEventReview,
   useFacilityPaymentStats,
-  useFacilityReliability,
-  usePendingFollowUps,
-  useFollowUpHistory,
-  useRecordPaymentResponse,
-  useScheduleFollowUp,
-  useFacilitiesByPaymentRate,
-  usePendingFollowUpCount,
-} from './hooks/usePaymentStats';
-
-// Payment Stats Service
-export {
-  fetchFacilityPaymentStats,
-  getFacilityReliability,
-  fetchPendingFollowUps,
-  fetchAllFollowUps,
-  recordPaymentResponse,
-  autoScheduleFollowUp,
-  fetchFacilitiesByPaymentRate,
-} from './services/paymentStatsService';
-
-// Truck Entrance Service
-export {
-  submitTruckEntranceReport,
-  confirmTruckEntrance,
-  reportTruckEntranceIncorrect,
-  getUserTruckEntranceReport,
-  getFacilityTruckEntranceReports,
-  getFacilitiesWithTruckEntrance,
-  hasUserReported,
-} from './services/truckEntranceService';
+  useCreateReview,
+  useReportPayment,
+} from './hooks/useFacilitiesConvex';
 
 // Components
 export { FacilitySearch } from './components/FacilitySearch';

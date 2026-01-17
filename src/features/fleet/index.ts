@@ -1,5 +1,8 @@
 /**
  * Fleet Feature Exports
+ *
+ * NOTE: All fleet data operations now use Convex hooks from @/shared/hooks/convex
+ * or the local hooks exported below.
  */
 
 // Types
@@ -33,60 +36,78 @@ export {
   useFleetLoading,
   useFleetError,
   useSelectedDriverId,
-  useIsFleetAdmin,
+  useIsFleetAdmin as useIsFleetAdminStore,
   type FleetState,
 } from './store';
 
-// React Query Hooks
+// Services - Utility functions
 export {
-  // Fleet CRUD
+  // Fleet
+  type FleetStats,
+  calculateFleetStats,
+  formatMemberRole,
+  formatMemberStatus,
+  getMemberStatusColor,
+  // Member
+  type FleetMember as FleetMemberType,
+  canManageMembers,
+  canInviteDrivers,
+  canViewAnalytics,
+  canEditSettings,
+  getEffectiveHourlyRate,
+  getEffectiveGracePeriod,
+  // Invitation
+  type FleetInvitation as FleetInvitationType,
+  generateInvitationCode,
+  isInvitationExpired,
+  isInvitationAccepted,
+  getInvitationStatus,
+  formatExpirationTime,
+  DEFAULT_INVITATION_EXPIRY_DAYS,
+  calculateExpirationTime,
+  // Fleet Invoice
+  type FleetInvoice as FleetInvoiceType,
+  generateFleetInvoiceNumber,
+  formatInvoiceStatus,
+  getInvoiceStatusColor,
+  formatDateRange,
+} from './services';
+
+// Convex Hooks
+export {
   useFleet,
   useUserFleets,
+  useOwnedFleets,
+  useFleetDashboard,
   useCreateFleet,
   useUpdateFleet,
+  useUpdateFleetSettings,
   useDeleteFleet,
-  fleetKeys,
-  // Fleet Members
   useFleetMembers,
+  useMembership,
+  useIsFleetAdmin,
   useAddFleetMember,
-  useUpdateMemberStatus,
   useUpdateMemberRole,
+  useUpdateMemberStatus,
   useRemoveFleetMember,
-  fleetMemberKeys,
-  // Fleet Invitations
-  usePendingInvitations,
+  useFleetInvitations,
   useInvitationByCode,
+  useInvitationsForEmail,
   useCreateInvitation,
   useAcceptInvitation,
-  useCancelInvitation,
   useResendInvitation,
-  fleetInvitationKeys,
-  // Fleet Events
-  useFleetEvents,
-  useFleetEventsByMember,
-  useFleetEventsByStatus,
-  useFleetEventsDateRange,
-  useFleetSummary,
-  usePaginatedFleetEvents,
-  fleetEventKeys,
-  // Fleet Invoices
+  useCancelInvitation,
   useFleetInvoices,
-  useFleetInvoiceDetails,
-  useFleetInvoiceSummary,
+  useFleetInvoice,
+  useFleetInvoiceByNumber,
+  useFleetBillingSummary,
   useCreateFleetInvoice,
-  useUpdateFleetInvoiceStatus,
+  useUpdateFleetInvoice,
+  useSetFleetInvoicePdfUrl,
+  useMarkFleetInvoiceSent,
+  useMarkFleetInvoicePaid,
   useDeleteFleetInvoice,
-  fleetInvoiceKeys,
-} from './hooks';
-
-export type {
-  FleetEventWithMember,
-  FleetEventFilters,
-  CreateInvitationInput,
-  FleetInvitationWithDetails,
-  FleetInvoiceWithDetails,
-  CreateFleetInvoiceInput,
-  MemberRole,
+  useSendFleetInvoiceEmail,
 } from './hooks';
 
 // Components

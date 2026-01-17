@@ -1,19 +1,26 @@
 /**
  * Billing Services
+ * 
+ * NOTE: Billing operations now use Convex. Use hooks from @/shared/hooks/convex:
+ * - useSubscription(userId) - Get subscription
+ * - useCreateSubscription() - Create subscription
+ * - useUpdateSubscription() - Update subscription
+ * - useCancelSubscription() - Cancel subscription
  */
 
 export {
-  PRICING_PLANS,
-  createCheckoutSession,
-  openCheckout,
-  openCustomerPortal,
-  getSubscriptionStatus,
-  getPricingPlans,
-  getPricingPlan,
-  getSubscriptionFeatures,
-  canPerformAction,
-  getRemainingEvents,
+  // Types
+  type SubscriptionTier,
+  type SubscriptionStatus,
+  type SubscriptionInfo,
+  type TierFeatures,
+  // Constants
+  TIER_FEATURES,
+  // Utility functions
+  getTierDisplayName,
+  getStatusDisplayName,
+  getStatusColor,
+  tierHasFeature,
   isSubscriptionActive,
-  formatSubscriptionStatus,
-  getTrialDaysRemaining,
+  formatPeriodEnd,
 } from './billingService';

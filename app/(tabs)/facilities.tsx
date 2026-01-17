@@ -49,25 +49,25 @@ export default function FacilitiesTab() {
   const [showAddFacility, setShowAddFacility] = useState(false);
 
   // Get recent facilities from detention history (last 10 unique facilities)
-  const detentionHistory = useDetentionHistory(userId, { limit: 50 });
+  const detentionHistoryResult = useDetentionHistory(userId, { limit: 50 });
   
   // Extract unique recent facilities from detention events
   const recentFacilities: Facility[] = [];
   const seenFacilities = new Set<string>();
   
-  if (detentionHistory) {
-    for (const event of detentionHistory) {
+  if (detentionHistoryResult?.events) {
+    for (const event of detentionHistoryResult.events) {
       if (event.facilityName && !seenFacilities.has(event.facilityName)) {
         seenFacilities.add(event.facilityName);
         recentFacilities.push({
           id: event.facilityId || event._id,
           name: event.facilityName,
-          address: event.facilityAddress || '',
+          address: '',
           city: '',
           state: '',
           zip: '',
-          lat: event.lat || 0,
-          lng: event.lng || 0,
+          lat: 0,
+          lng: 0,
           facility_type: event.eventType === 'pickup' ? 'shipper' : 'receiver',
           avg_wait_minutes: null,
           avg_rating: null,
@@ -88,7 +88,7 @@ export default function FacilitiesTab() {
     }
   }
   
-  const isLoadingRecent = detentionHistory === undefined;
+  const isLoadingRecent = detentionHistoryResult === undefined;
 
   const handleFacilitySelect = (facility: Facility) => {
     console.log('Selected facility:', facility.id);

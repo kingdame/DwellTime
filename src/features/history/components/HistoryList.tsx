@@ -48,15 +48,15 @@ export function HistoryList({ onRecordPress }: HistoryListProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Use Convex hook for real-time data
-  const data = useDetentionHistoryConvex(userId, { limit: 100 });
-  const isLoading = data === undefined;
+  const historyResult = useDetentionHistoryConvex(userId, { limit: 100 });
+  const isLoading = historyResult === undefined;
   const isError = false; // Convex handles errors differently
 
-  // Transform Convex data to DetentionRecord format
-  const records: DetentionRecord[] = (data || []).map((event) => ({
+  // Transform Convex data to DetentionRecord format (historyResult.events is the array)
+  const records: DetentionRecord[] = (historyResult?.events || []).map((event) => ({
     id: event._id,
     facilityName: event.facilityName || 'Unknown Facility',
-    facilityAddress: event.facilityAddress,
+    facilityAddress: undefined,
     eventType: event.eventType || 'delivery',
     loadReference: event.loadReference,
     arrivalTime: new Date(event.arrivalTime).toISOString(),
@@ -68,7 +68,7 @@ export function HistoryList({ onRecordPress }: HistoryListProps) {
     detentionAmount: event.totalAmount || 0,
     notes: event.notes,
     verificationCode: event.verificationCode || '',
-    photoCount: event.photoCount || 0,
+    photoCount: 0,
   }));
 
   const handleRefresh = useCallback(async () => {

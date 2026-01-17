@@ -1,13 +1,17 @@
 /**
  * useGeofencing Hook
  * Monitors driver location and detects facility arrivals/departures
+ *
+ * NOTE: Facility detection now uses Convex useNearbyFacilities hook.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import * as Location from 'expo-location';
 import type { Facility } from '@/shared/types';
-import { detectCurrentFacility, isWithinGeofence, GEOFENCE_RADIUS_METERS } from '../services/facilityService';
+
+// Geofence radius in meters
+export const GEOFENCE_RADIUS_METERS = 200;
 
 export interface GeofenceState {
   isMonitoring: boolean;
@@ -27,16 +31,61 @@ export interface GeofenceEvent {
 interface UseGeofencingOptions {
   enabled?: boolean;
   updateInterval?: number; // milliseconds
+  nearbyFacilities?: Facility[];
   onEnterFacility?: (event: GeofenceEvent) => void;
   onExitFacility?: (event: GeofenceEvent) => void;
 }
 
 const DEFAULT_UPDATE_INTERVAL = 30000; // 30 seconds
 
+/**
+ * Check if a point is within geofence radius of a facility
+ */
+function isWithinGeofence(
+  lat: number,
+  lng: number,
+  facilityLat: number,
+  facilityLng: number,
+  radiusMeters: number = GEOFENCE_RADIUS_METERS
+): boolean {
+  // Haversine formula for distance between two points
+  const R = 6371000; // Earth's radius in meters
+  const dLat = toRad(facilityLat - lat);
+  const dLng = toRad(facilityLng - lng);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat)) * Math.cos(toRad(facilityLat)) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c;
+  return distance <= radiusMeters;
+}
+
+function toRad(deg: number): number {
+  return deg * (Math.PI / 180);
+}
+
+/**
+ * Detect the current facility based on location
+ */
+function detectCurrentFacility(
+  lat: number,
+  lng: number,
+  facilities: Facility[]
+): Facility | null {
+  for (const facility of facilities) {
+    if (isWithinGeofence(lat, lng, facility.lat, facility.lng)) {
+      return facility;
+    }
+  }
+  return null;
+}
+
 export function useGeofencing(options: UseGeofencingOptions = {}) {
   const {
     enabled = true,
     updateInterval = DEFAULT_UPDATE_INTERVAL,
+    nearbyFacilities = [],
     onEnterFacility,
     onExitFacility,
   } = options;
@@ -50,7 +99,6 @@ export function useGeofencing(options: UseGeofencingOptions = {}) {
   });
 
   const previousFacilityRef = useRef<Facility | null>(null);
-  const locationSubscriptionRef = useRef<Location.LocationSubscription | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
@@ -83,9 +131,9 @@ export function useGeofencing(options: UseGeofencingOptions = {}) {
   }, []);
 
   // Check for facility and handle enter/exit events
-  const checkFacility = useCallback(async (lat: number, lng: number) => {
-    try {
-      const facility = await detectCurrentFacility(lat, lng);
+  const checkFacility = useCallback(
+    (lat: number, lng: number) => {
+      const facility = detectCurrentFacility(lat, lng, nearbyFacilities);
       const previousFacility = previousFacilityRef.current;
 
       // Detect enter event
@@ -118,14 +166,9 @@ export function useGeofencing(options: UseGeofencingOptions = {}) {
         lastUpdate: new Date(),
         error: null,
       }));
-    } catch (error) {
-      console.error('Error checking facility:', error);
-      setState((prev) => ({
-        ...prev,
-        error: error instanceof Error ? error.message : 'Failed to detect facility',
-      }));
-    }
-  }, [onEnterFacility, onExitFacility]);
+    },
+    [nearbyFacilities, onEnterFacility, onExitFacility]
+  );
 
   // Update location and check facility
   const updateLocation = useCallback(async () => {
@@ -138,7 +181,7 @@ export function useGeofencing(options: UseGeofencingOptions = {}) {
         error: null,
       }));
 
-      await checkFacility(location.lat, location.lng);
+      checkFacility(location.lat, location.lng);
     } catch (error) {
       setState((prev) => ({
         ...prev,
@@ -180,11 +223,6 @@ export function useGeofencing(options: UseGeofencingOptions = {}) {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
-    }
-
-    if (locationSubscriptionRef.current) {
-      locationSubscriptionRef.current.remove();
-      locationSubscriptionRef.current = null;
     }
 
     setState((prev) => ({
@@ -238,6 +276,3 @@ export function useGeofencing(options: UseGeofencingOptions = {}) {
     refresh,
   };
 }
-
-// Export constants
-export { GEOFENCE_RADIUS_METERS };

@@ -1,28 +1,37 @@
 /**
  * Profile Feature Exports
+ *
+ * NOTE: Profile data operations now use Convex hooks from @/shared/hooks/convex:
+ * - useUser(id) - Get user profile
+ * - useCreateUser() - Create user
+ * - useUpdateUser() - Update user profile
  */
 
-// Services
+// Services - Utility and validation functions
 export {
-  fetchUserProfile,
-  updateUserProfile,
+  type ProfileUpdateInput,
+  type ValidationError,
+  type ProfileUpdateResult,
   validateProfileInput,
+  cleanProfileInput,
   formatGracePeriod,
   formatHourlyRate,
   VALIDATION_RULES,
-  type ProfileUpdateInput,
-  type ProfileUpdateResult,
-  type ValidationError,
 } from './services/profileService';
 
-// Hooks
+// Convex Hooks (re-export for convenience)
 export {
-  useUserProfile,
-  useUpdateProfile,
-  useCurrentUser,
-  useIsProfileComplete,
-  useProfileCompletion,
-} from './hooks/useProfile';
+  useUser,
+  useUserByEmail,
+  useCreateUser,
+  useUpdateUser,
+  useUpdateUserSubscription,
+  useSetCurrentFleet,
+  useSubscription,
+  useCreateSubscription,
+  useUpdateSubscription,
+  useCancelSubscription,
+} from './hooks/useProfileConvex';
 
 // Components
 export { EditableSettingRow, SettingSectionHeader } from './components/EditableSettingRow';

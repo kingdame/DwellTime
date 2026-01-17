@@ -286,13 +286,13 @@ export default function InvoicesTab() {
   const [invoiceToSend, setInvoiceToSend] = useState<InvoiceWithDetails | null>(null);
 
   // Fetch completed events for invoice creation using Convex
-  const historyData = useDetentionHistory(userId, { status: 'completed', limit: 100 });
+  const historyResult = useDetentionHistory(userId, { status: 'completed', limit: 100 });
   
-  // Transform Convex data to DetentionRecord format
-  const availableEvents: DetentionRecord[] = (historyData || []).map((event) => ({
+  // Transform Convex data to DetentionRecord format (historyResult.events is the array)
+  const availableEvents: DetentionRecord[] = (historyResult?.events || []).map((event) => ({
     id: event._id,
     facilityName: event.facilityName || 'Unknown Facility',
-    facilityAddress: event.facilityAddress,
+    facilityAddress: undefined,
     eventType: event.eventType || 'delivery',
     loadReference: event.loadReference,
     arrivalTime: new Date(event.arrivalTime).toISOString(),
@@ -304,7 +304,7 @@ export default function InvoicesTab() {
     detentionAmount: event.totalAmount || 0,
     notes: event.notes,
     verificationCode: event.verificationCode || '',
-    photoCount: event.photoCount || 0,
+    photoCount: 0,
   }));
 
   // Fetch frequent contacts for send modal

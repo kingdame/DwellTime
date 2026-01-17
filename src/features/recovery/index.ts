@@ -1,41 +1,33 @@
 /**
  * Recovery Feature Module
  * Exports for invoice tracking, aging, and recovery dashboard
+ *
+ * NOTE: Recovery data operations now use Convex hooks from @/shared/hooks/convex:
+ * - useRecoveryStats(userId) - Get recovery statistics
+ * - useInvoicesForRecovery(userId) - Get invoices for recovery tracking
  */
 
-// Services
+// Services - Utility functions
 export {
-  fetchRecoveryStats,
-  fetchInvoiceTracking,
-  createInvoiceTracking,
-  updateInvoiceTracking,
-  markInvoicePaid,
-  markInvoicePartialPaid,
-  calculateAgingBucket,
-  fetchAgingInvoices,
-  calculateAgingBuckets,
-  calculateROI,
-  recordReminderSent,
-  fetchInvoicesDueForReminder,
+  type AgingBucket,
+  type AgingSummary,
+  calculatePriorityScore,
+  getPriorityLabel,
+  getPriorityColor,
+  formatAgingBucketLabel,
+  calculateDaysOutstanding,
+  getSuggestedAction,
 } from './services/recoveryService';
 
-// Hooks
+// Convex Hooks (re-export for convenience)
 export {
   useRecoveryStats,
-  useROICalculation,
-  useRecoverySummary,
-} from './hooks/useRecoveryStats';
-
-export {
-  useAgingInvoices,
-  useAgingBuckets,
+  useInvoicesForRecovery,
+  useMarkSent,
   useMarkPaid,
-  useMarkPartialPaid,
-  useUpdateTracking,
-  useRecordReminder,
-  useRemindersDue,
-  useAgingInvoicesByBucket,
-} from './hooks/useInvoiceAging';
+  useReportPaymentOutcome,
+  calculateROI,
+} from './hooks/useRecoveryConvex';
 
 // Components
 export { RecoveryDashboard } from './components/RecoveryDashboard';
@@ -54,7 +46,7 @@ export type {
   AgingBucketSummary,
   ROICalculation,
   PaymentStatus,
-  AgingBucket,
+  AgingBucket as AgingBucketType,
 } from '@/shared/types/recovery';
 
 export {

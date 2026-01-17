@@ -93,6 +93,82 @@ npm install 2>&1 | tee ,context/terminal/install.log
 
 ---
 
+## PRD Feature Checklist (vs Implementation)
+
+### ✅ Core Features - IMPLEMENTED
+
+| Feature | PRD Requirement | Implementation Status |
+|---------|-----------------|----------------------|
+| **Geofence Detection** | Auto-detect facility arrival | ✅ `useLocation`, `useDetentionTracking` |
+| **Detention Timer** | GPS-verified tracking | ✅ `TimerDisplay`, `useDetentionTimer` |
+| **Grace Period** | 2-hour default | ✅ User configurable in profile |
+| **Photo Evidence** | Capture with GPS/timestamp | ✅ `evidence` feature module |
+| **Photo Categories** | dock, BOL, conditions, checkin | ✅ In Convex schema |
+| **Invoice Generation** | PDF with GPS log | ✅ `invoices` feature module |
+| **Invoice Email** | Send to broker in-app | ✅ `SendInvoiceModal`, `useEmailContacts` |
+| **Facility Ratings** | 1-5 stars + 7 categories | ✅ `facilityReviews` Convex table |
+| **Facility Search** | By name/address | ✅ `FacilitySearch`, `useFacilityLookup` |
+| **History Dashboard** | List + filters | ✅ `history` feature module |
+| **User Profile** | Settings, hourly rate | ✅ `profile` feature module |
+| **Subscriptions** | Free/Pro/Fleet tiers | ✅ `billing` feature module |
+
+### ✅ PRD Addendum Features - IMPLEMENTED
+
+| Feature | PRD Requirement | Implementation Status |
+|---------|-----------------|----------------------|
+| **Payment Reliability** | "Did you get paid?" tracking | ✅ `facilityReviews.gotPaid`, `paymentFollowUps` |
+| **Truck Entrance** | Crowdsourced entrance info | ✅ `TruckEntranceCard`, `truckEntranceReports` |
+| **Recovery Dashboard** | Track invoiced vs paid | ✅ `recovery` feature module |
+| **Invoice Aging** | 14/21/30 day tracking | ✅ `invoiceTracking` table |
+| **Email Contacts** | Save broker contacts | ✅ `emailContacts` table, `ContactPicker` |
+| **Dual Detention** | Pickup + Delivery | ✅ `eventType` field in `detentionEvents` |
+
+### ✅ Fleet Features - IMPLEMENTED
+
+| Feature | PRD Requirement | Implementation Status |
+|---------|-----------------|----------------------|
+| **Fleet Dashboard** | View all driver events | ✅ `FleetDashboard` component |
+| **Driver Management** | Add/remove drivers | ✅ `FleetDriverList`, `InviteDriverModal` |
+| **Fleet Invitations** | Email/code invites | ✅ `fleetInvitations` table |
+| **Fleet Invoices** | Consolidated billing | ✅ `fleetInvoices` table |
+| **Role Permissions** | Admin vs Driver | ✅ `fleetRole` on users |
+
+### 🔄 Database Schema - ALL TABLES PRESENT
+
+| Table | Purpose | Status |
+|-------|---------|--------|
+| `users` | User profiles | ✅ |
+| `facilities` | Shipper/receiver locations | ✅ |
+| `detentionEvents` | Tracking records | ✅ |
+| `gpsLogs` | GPS breadcrumbs | ✅ |
+| `photos` | Evidence photos | ✅ |
+| `facilityReviews` | Ratings + payment tracking | ✅ |
+| `invoices` | Generated invoices | ✅ |
+| `subscriptions` | Stripe sync | ✅ |
+| `invoiceTracking` | Payment follow-up | ✅ |
+| `emailContacts` | Quick-send contacts | ✅ |
+| `invoiceEmails` | Email send log | ✅ |
+| `fleets` | Fleet organizations | ✅ |
+| `fleetMembers` | Driver memberships | ✅ |
+| `fleetInvitations` | Pending invites | ✅ |
+| `fleetInvoices` | Consolidated billing | ✅ |
+| `truckEntranceReports` | Crowdsourced entrances | ✅ |
+| `paymentFollowUps` | Scheduled check-ins | ✅ |
+
+### ⏳ Future/Phase 2+ Features (NOT YET IMPLEMENTED)
+
+| Feature | PRD Phase | Notes |
+|---------|-----------|-------|
+| ELD Auto-Capture | Phase 7 | Samsara/Motive integration |
+| AI Analytics | Phase 7 | ML predictions, efficiency scores |
+| Shipper Portal | Phase 5 | Facility claim system |
+| Public API | Phase 6 | REST API for brokers |
+| Map View | Phase 2 | Facility map visualization |
+| Push Notifications | Phase 1 | Geofence alerts (partially ready) |
+| PDF Watermarking | Phase 1 | GPS watermark on photos |
+
+---
+
 ## Project Overview
 
 DwellTime Fresh - Expo/React Native app with Convex backend for detention time tracking.

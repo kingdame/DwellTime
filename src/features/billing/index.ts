@@ -1,11 +1,17 @@
 /**
  * DwellTime Billing Feature
  *
- * Stripe subscription management for DwellTime app.
+ * Subscription management for DwellTime app.
  * Handles Pro, Small Fleet, Fleet, and Enterprise tiers.
+ *
+ * NOTE: Billing operations now use Convex hooks from @/shared/hooks/convex:
+ * - useSubscription(userId) - Get subscription
+ * - useCreateSubscription() - Create subscription
+ * - useUpdateSubscription() - Update subscription
+ * - useCancelSubscription() - Cancel subscription
  */
 
-// Types
+// Types from types/index.ts
 export type {
   SubscriptionTier,
   SubscriptionStatus,
@@ -22,40 +28,17 @@ export type {
   BillingEvent,
 } from './types';
 
-// Services
+// Types and utilities from services/billingService
 export {
-  PRICING_PLANS,
-  createCheckoutSession,
-  openCheckout,
-  openCustomerPortal,
-  getSubscriptionStatus,
-  getPricingPlans,
-  getPricingPlan,
-  getSubscriptionFeatures,
-  canPerformAction,
-  getRemainingEvents,
+  type TierFeatures,
+  TIER_FEATURES,
+  getTierDisplayName,
+  getStatusDisplayName,
+  getStatusColor,
+  tierHasFeature,
   isSubscriptionActive,
-  formatSubscriptionStatus,
-  getTrialDaysRemaining,
+  formatPeriodEnd,
 } from './services/billingService';
 
-// Hooks
-export {
-  subscriptionKeys,
-  useSubscription,
-  useRemainingEvents,
-  usePricingPlans,
-  useCheckout,
-  useCustomerPortal,
-  useSubscriptionFeature,
-  useCanTrackEvent,
-  useUpgradePrompt,
-  useSubscriptionAnalytics,
-} from './hooks/useSubscription';
-
 // Components
-export {
-  PricingCard,
-  PricingComparison,
-  IntervalToggle,
-} from './components/PricingCard';
+export { PricingCard, PricingComparison, IntervalToggle } from './components/PricingCard';

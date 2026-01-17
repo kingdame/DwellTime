@@ -1,89 +1,51 @@
 /**
  * Fleet Hooks
- * Re-exports all fleet management hooks
+ *
+ * NOTE: All fleet data operations now use Convex hooks.
+ * The old TanStack Query hooks have been removed as they
+ * depended on non-existent Supabase service functions.
  */
 
-// Fleet CRUD hooks
+// Convex Fleet Hooks
 export {
   useFleet,
   useUserFleets,
+  useOwnedFleets,
+  useFleetDashboard,
   useCreateFleet,
   useUpdateFleet,
+  useUpdateFleetSettings,
   useDeleteFleet,
-  fleetKeys,
-} from './useFleet';
-
-export type {
-  Fleet,
-  FleetCreateInput,
-  FleetUpdateInput,
-} from './useFleet';
-
-// Fleet member hooks
-export {
   useFleetMembers,
+  useMembership,
+  useIsFleetAdmin,
   useAddFleetMember,
-  useUpdateMemberStatus,
   useUpdateMemberRole,
+  useUpdateMemberStatus,
   useRemoveFleetMember,
-  fleetMemberKeys,
-} from './useFleetMembers';
-
-export type {
-  FleetMember,
-  FleetMemberWithUser,
-  MemberRole,
-  MemberStatus,
-} from './useFleetMembers';
-
-// Fleet invitation hooks
-export {
-  usePendingInvitations,
+  useFleetInvitations,
   useInvitationByCode,
+  useInvitationsForEmail,
   useCreateInvitation,
   useAcceptInvitation,
-  useCancelInvitation,
   useResendInvitation,
-  fleetInvitationKeys,
-} from './useFleetInvitations';
+  useCancelInvitation,
+} from './useFleetConvex';
 
-export type {
-  FleetInvitation,
-  FleetInvitationWithDetails,
-  CreateInvitationInput,
-} from './useFleetInvitations';
-
-// Fleet events hooks
-export {
-  useFleetEvents,
-  useFleetEventsByMember,
-  useFleetEventsByStatus,
-  useFleetEventsDateRange,
-  useFleetSummary,
-  usePaginatedFleetEvents,
-  fleetEventKeys,
-} from './useFleetEvents';
-
-export type {
-  FleetEventWithMember,
-  FleetEventFilters,
-  FleetSummary,
-} from './useFleetEvents';
-
-// Fleet invoice hooks
+// Convex Fleet Invoice Hooks
 export {
   useFleetInvoices,
-  useFleetInvoiceDetails,
-  useFleetInvoiceSummary,
+  useFleetInvoice,
+  useFleetInvoiceByNumber,
+  useFleetBillingSummary,
   useCreateFleetInvoice,
-  useUpdateFleetInvoiceStatus,
+  useUpdateFleetInvoice,
+  useSetFleetInvoicePdfUrl,
+  useMarkFleetInvoiceSent,
+  useMarkFleetInvoicePaid,
   useDeleteFleetInvoice,
-  fleetInvoiceKeys,
-} from './useFleetInvoices';
+  useSendFleetInvoiceEmail,
+} from './useFleetInvoicesConvex';
 
-export type {
-  FleetInvoice,
-  FleetInvoiceWithDetails,
-  FleetInvoiceStatus,
-  CreateFleetInvoiceInput,
-} from './useFleetInvoices';
+// Detention events use the shared detention hooks:
+// import { useFleetDetentionEvents } from '@/shared/hooks/convex';
