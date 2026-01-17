@@ -2,10 +2,11 @@
  * Facilities Tab - Facility lookup and saved facilities
  */
 
-import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, SafeAreaView } from 'react-native';
+import * as Location from 'expo-location';
 import { colors } from '../../src/constants/colors';
-import { FacilityLookup, FacilitySearch } from '../../src/features/facilities';
+import { FacilityLookup, FacilitySearch, AddFacilityForm } from '../../src/features/facilities';
 import { useCurrentUserId, useCurrentUser } from '../../src/features/auth';
 import { useDetentionHistory } from '../../src/shared/hooks/convex';
 import type { Facility } from '../../src/shared/types';
@@ -47,6 +48,21 @@ export default function FacilitiesTab() {
   const user = useCurrentUser();
   const [showLookup, setShowLookup] = useState(false);
   const [showAddFacility, setShowAddFacility] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Get current location for adding facilities
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const location = await Location.getCurrentPositionAsync({});
+        setCurrentLocation({
+          lat: location.coords.latitude,
+          lng: location.coords.longitude,
+        });
+      }
+    })();
+  }, []);
 
   // Get recent facilities from detention history (last 10 unique facilities)
   const detentionHistoryResult = useDetentionHistory(userId, { limit: 50 });
@@ -180,26 +196,24 @@ export default function FacilitiesTab() {
         <FacilityLookup onClose={() => setShowLookup(false)} />
       </Modal>
 
-      {/* Add Facility Modal (placeholder) */}
+      {/* Add Facility Modal */}
       <Modal
         visible={showAddFacility}
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setShowAddFacility(false)}
       >
-        <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
-          <View style={styles.modalHeader}>
-            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Add Facility</Text>
-            <Pressable onPress={() => setShowAddFacility(false)}>
-              <Text style={[styles.closeButton, { color: theme.textSecondary }]}>✕</Text>
-            </Pressable>
-          </View>
-          <View style={styles.modalContent}>
-            <Text style={[styles.comingSoonText, { color: theme.textSecondary }]}>
-              Add new facility form coming soon...
-            </Text>
-          </View>
-        </View>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: theme.background }]}>
+          <AddFacilityForm
+            currentLocation={currentLocation}
+            onSuccess={(facility) => {
+              setShowAddFacility(false);
+              // Could show a success message or navigate to facility
+              console.log('Created facility:', facility);
+            }}
+            onCancel={() => setShowAddFacility(false)}
+          />
+        </SafeAreaView>
       </Modal>
     </View>
   );

@@ -1,6 +1,6 @@
 /**
  * AddFacilityForm Component
- * Form for adding a new facility
+ * Form for adding a new facility with Google Places Autocomplete
  */
 
 import { useState, useCallback } from 'react';
@@ -16,6 +16,8 @@ import {
 } from 'react-native';
 import { colors } from '@/constants/colors';
 import { useCreateFacility } from '../hooks/useFacilitiesConvex';
+import { PlacesAutocomplete } from '@/shared/components/PlacesAutocomplete';
+import { isGoogleMapsConfigured, type ParsedAddress } from '@/shared/lib/googleMaps';
 import type { Facility } from '@/shared/types';
 
 // Local type for create input
@@ -58,20 +60,56 @@ export function AddFacilityForm({
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [zip, setZip] = useState('');
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
   const [facilityType, setFacilityType] = useState<FacilityType>('receiver');
   const [useCurrentLocation, setUseCurrentLocation] = useState(!!currentLocation);
+  const [showManualEntry, setShowManualEntry] = useState(!isGoogleMapsConfigured());
 
-  const isValid = name.trim().length >= 2 && (useCurrentLocation ? !!currentLocation : true);
+  // Handle address selection from Google Places
+  const handleAddressSelect = useCallback((parsedAddress: ParsedAddress) => {
+    // Use place name if no name entered yet
+    if (!name.trim() && parsedAddress.name) {
+      setName(parsedAddress.name);
+    }
+    
+    // Build street address
+    const streetAddress = [parsedAddress.streetNumber, parsedAddress.street]
+      .filter(Boolean)
+      .join(' ');
+    
+    setAddress(streetAddress || parsedAddress.formattedAddress);
+    setCity(parsedAddress.city || '');
+    setState(parsedAddress.state || '');
+    setZip(parsedAddress.zip || '');
+    setLat(parsedAddress.lat);
+    setLng(parsedAddress.lng);
+    
+    // Turn off "use current location" since we have coordinates from the place
+    if (parsedAddress.lat && parsedAddress.lng) {
+      setUseCurrentLocation(false);
+    }
+  }, [name]);
+
+  const hasCoordinates = (lat !== null && lng !== null) || (useCurrentLocation && currentLocation);
+  const isValid = name.trim().length >= 2 && hasCoordinates;
 
   const handleSubmit = useCallback(async () => {
     if (!isValid) {
-      Alert.alert('Invalid Form', 'Please enter a facility name (at least 2 characters)');
+      Alert.alert('Invalid Form', 'Please enter a facility name and provide a location (search for address or use current location)');
       return;
     }
 
-    if (useCurrentLocation && !currentLocation) {
-      Alert.alert('Location Required', 'Current location is not available');
-      return;
+    // Determine coordinates
+    let finalLat = 0;
+    let finalLng = 0;
+    
+    if (lat !== null && lng !== null) {
+      finalLat = lat;
+      finalLng = lng;
+    } else if (useCurrentLocation && currentLocation) {
+      finalLat = currentLocation.lat;
+      finalLng = currentLocation.lng;
     }
 
     const input: FacilityCreateInput = {
@@ -80,9 +118,9 @@ export function AddFacilityForm({
       city: city.trim() || undefined,
       state: state.trim() || undefined,
       zip: zip.trim() || undefined,
-      lat: useCurrentLocation ? currentLocation!.lat : 0,
-      lng: useCurrentLocation ? currentLocation!.lng : 0,
-      facility_type: facilityType,
+      lat: finalLat,
+      lng: finalLng,
+      facilityType: facilityType,
     };
 
     try {
@@ -94,7 +132,7 @@ export function AddFacilityForm({
         error instanceof Error ? error.message : 'Failed to create facility'
       );
     }
-  }, [isValid, useCurrentLocation, currentLocation, name, address, city, state, zip, facilityType, createFacility, onSuccess]);
+  }, [isValid, useCurrentLocation, currentLocation, name, address, city, state, zip, lat, lng, facilityType, createFacility, onSuccess]);
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
@@ -120,57 +158,106 @@ export function AddFacilityForm({
         />
       </View>
 
-      {/* Address */}
-      <View style={styles.field}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>
-          Street Address
-        </Text>
-        <TextInput
-          style={[styles.input, { backgroundColor: theme.card, color: theme.textPrimary }]}
-          value={address}
-          onChangeText={setAddress}
-          placeholder="123 Warehouse Blvd"
-          placeholderTextColor={theme.textDisabled}
-        />
-      </View>
+      {/* Google Places Autocomplete */}
+      {isGoogleMapsConfigured() && !showManualEntry && (
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: theme.textSecondary }]}>
+            Search Address
+          </Text>
+          <PlacesAutocomplete
+            placeholder="Search for address or business..."
+            onSelect={handleAddressSelect}
+            currentLocation={currentLocation}
+            onClear={() => {
+              setAddress('');
+              setCity('');
+              setState('');
+              setZip('');
+              setLat(null);
+              setLng(null);
+            }}
+          />
+          <TouchableOpacity
+            style={styles.toggleManual}
+            onPress={() => setShowManualEntry(true)}
+          >
+            <Text style={[styles.toggleManualText, { color: theme.primary }]}>
+              Enter address manually instead
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-      {/* City, State, Zip Row */}
-      <View style={styles.row}>
-        <View style={[styles.field, { flex: 2 }]}>
-          <Text style={[styles.label, { color: theme.textSecondary }]}>City</Text>
+      {/* Manual Entry Toggle (when using autocomplete) */}
+      {isGoogleMapsConfigured() && showManualEntry && (
+        <TouchableOpacity
+          style={styles.toggleManual}
+          onPress={() => setShowManualEntry(false)}
+        >
+          <Text style={[styles.toggleManualText, { color: theme.primary }]}>
+            ← Search for address instead
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Manual Address Entry (shown if no Google Maps or user prefers) */}
+      {(showManualEntry || !isGoogleMapsConfigured()) && (
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: theme.textSecondary }]}>
+            Street Address
+          </Text>
           <TextInput
             style={[styles.input, { backgroundColor: theme.card, color: theme.textPrimary }]}
-            value={city}
-            onChangeText={setCity}
-            placeholder="City"
+            value={address}
+            onChangeText={setAddress}
+            placeholder="123 Warehouse Blvd"
             placeholderTextColor={theme.textDisabled}
           />
         </View>
-        <View style={[styles.field, { flex: 1, marginLeft: 12 }]}>
-          <Text style={[styles.label, { color: theme.textSecondary }]}>State</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: theme.card, color: theme.textPrimary }]}
-            value={state}
-            onChangeText={setState}
-            placeholder="CA"
-            placeholderTextColor={theme.textDisabled}
-            maxLength={2}
-            autoCapitalize="characters"
-          />
+      )}
+
+      {/* City, State, Zip Row - shown in manual mode OR when filled from autocomplete */}
+      {(showManualEntry || !isGoogleMapsConfigured() || city || state || zip) && (
+        <View style={styles.row}>
+          <View style={[styles.field, { flex: 2 }]}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>City</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: theme.card, color: theme.textPrimary }]}
+              value={city}
+              onChangeText={setCity}
+              placeholder="City"
+              placeholderTextColor={theme.textDisabled}
+              editable={showManualEntry || !isGoogleMapsConfigured()}
+            />
+          </View>
+          <View style={[styles.field, { flex: 1, marginLeft: 12 }]}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>State</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: theme.card, color: theme.textPrimary }]}
+              value={state}
+              onChangeText={setState}
+              placeholder="CA"
+              placeholderTextColor={theme.textDisabled}
+              maxLength={2}
+              autoCapitalize="characters"
+              editable={showManualEntry || !isGoogleMapsConfigured()}
+            />
+          </View>
+          <View style={[styles.field, { flex: 1, marginLeft: 12 }]}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Zip</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: theme.card, color: theme.textPrimary }]}
+              value={zip}
+              onChangeText={setZip}
+              placeholder="12345"
+              placeholderTextColor={theme.textDisabled}
+              keyboardType="number-pad"
+              maxLength={5}
+              editable={showManualEntry || !isGoogleMapsConfigured()}
+            />
+          </View>
         </View>
-        <View style={[styles.field, { flex: 1, marginLeft: 12 }]}>
-          <Text style={[styles.label, { color: theme.textSecondary }]}>Zip</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: theme.card, color: theme.textPrimary }]}
-            value={zip}
-            onChangeText={setZip}
-            placeholder="12345"
-            placeholderTextColor={theme.textDisabled}
-            keyboardType="number-pad"
-            maxLength={5}
-          />
-        </View>
-      </View>
+      )}
 
       {/* Facility Type */}
       <View style={styles.field}>
@@ -205,33 +292,51 @@ export function AddFacilityForm({
         </View>
       </View>
 
-      {/* Location Toggle */}
+      {/* Location Status */}
       <View style={styles.field}>
-        <TouchableOpacity
-          style={[styles.locationToggle, { backgroundColor: theme.card }]}
-          onPress={() => setUseCurrentLocation(!useCurrentLocation)}
-          disabled={!currentLocation}
-        >
-          <View style={styles.checkbox}>
-            {useCurrentLocation && currentLocation && (
-              <Text style={styles.checkmark}>✓</Text>
-            )}
-          </View>
-          <View style={styles.locationToggleText}>
-            <Text style={[styles.locationLabel, { color: theme.textPrimary }]}>
-              Use Current Location
-            </Text>
-            {currentLocation ? (
+        {/* Show coordinates from Places search */}
+        {lat !== null && lng !== null && !useCurrentLocation && (
+          <View style={[styles.locationToggle, { backgroundColor: theme.success + '20' }]}>
+            <Text style={styles.checkmark}>✓</Text>
+            <View style={styles.locationToggleText}>
+              <Text style={[styles.locationLabel, { color: theme.success }]}>
+                Location from address search
+              </Text>
               <Text style={[styles.locationCoords, { color: theme.textSecondary }]}>
-                {currentLocation.lat.toFixed(6)}, {currentLocation.lng.toFixed(6)}
+                {lat.toFixed(6)}, {lng.toFixed(6)}
               </Text>
-            ) : (
-              <Text style={[styles.locationCoords, { color: theme.error }]}>
-                Location not available
-              </Text>
-            )}
+            </View>
           </View>
-        </TouchableOpacity>
+        )}
+
+        {/* Current location toggle - show when no Places coordinates */}
+        {(lat === null || lng === null || showManualEntry) && (
+          <TouchableOpacity
+            style={[styles.locationToggle, { backgroundColor: theme.card }]}
+            onPress={() => setUseCurrentLocation(!useCurrentLocation)}
+            disabled={!currentLocation}
+          >
+            <View style={styles.checkbox}>
+              {useCurrentLocation && currentLocation && (
+                <Text style={styles.checkmark}>✓</Text>
+              )}
+            </View>
+            <View style={styles.locationToggleText}>
+              <Text style={[styles.locationLabel, { color: theme.textPrimary }]}>
+                Use Current Location
+              </Text>
+              {currentLocation ? (
+                <Text style={[styles.locationCoords, { color: theme.textSecondary }]}>
+                  {currentLocation.lat.toFixed(6)}, {currentLocation.lng.toFixed(6)}
+                </Text>
+              ) : (
+                <Text style={[styles.locationCoords, { color: theme.error }]}>
+                  Location not available
+                </Text>
+              )}
+            </View>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Buttons */}
@@ -347,6 +452,14 @@ const styles = StyleSheet.create({
   locationCoords: {
     fontSize: 12,
     marginTop: 2,
+  },
+  toggleManual: {
+    marginTop: 12,
+    paddingVertical: 8,
+  },
+  toggleManualText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   buttons: {
     flexDirection: 'row',
