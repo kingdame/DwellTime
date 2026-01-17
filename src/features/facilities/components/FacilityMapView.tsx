@@ -1,11 +1,11 @@
 /**
- * FacilityMapView - Interactive map view for facilities
- * Features: Clustered markers, user location, facility cards on select
+ * FacilityMapView - Native version with react-native-maps
+ * Note: This file is for native platforms. Web uses FacilityMapView.web.tsx
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Dimensions, Platform } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE, Region, Callout } from 'react-native-maps';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -20,47 +20,15 @@ import { GlassCard } from '@/shared/components/ui';
 import { AmenitiesCompact } from './AmenitiesDisplay';
 import type { Id } from '../../../../convex/_generated/dataModel';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
 // Custom map style for dark mode
 const DARK_MAP_STYLE = [
   { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
   { elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
   { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
   {
-    featureType: 'administrative.locality',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#d59563' }],
-  },
-  {
-    featureType: 'poi',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#d59563' }],
-  },
-  {
-    featureType: 'poi.park',
-    elementType: 'geometry',
-    stylers: [{ color: '#263c3f' }],
-  },
-  {
-    featureType: 'poi.park',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#6b9a76' }],
-  },
-  {
     featureType: 'road',
     elementType: 'geometry',
     stylers: [{ color: '#38414e' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#212a37' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#9ca5b3' }],
   },
   {
     featureType: 'road.highway',
@@ -68,38 +36,8 @@ const DARK_MAP_STYLE = [
     stylers: [{ color: '#746855' }],
   },
   {
-    featureType: 'road.highway',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#1f2835' }],
-  },
-  {
-    featureType: 'road.highway',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#f3d19c' }],
-  },
-  {
-    featureType: 'transit',
-    elementType: 'geometry',
-    stylers: [{ color: '#2f3948' }],
-  },
-  {
-    featureType: 'transit.station',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#d59563' }],
-  },
-  {
     featureType: 'water',
     elementType: 'geometry',
-    stylers: [{ color: '#17263c' }],
-  },
-  {
-    featureType: 'water',
-    elementType: 'labels.text.fill',
-    stylers: [{ color: '#515c6d' }],
-  },
-  {
-    featureType: 'water',
-    elementType: 'labels.text.stroke',
     stylers: [{ color: '#17263c' }],
   },
 ];
