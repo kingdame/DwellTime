@@ -2,6 +2,19 @@
 
 ## Session Notes
 
+### January 17, 2026 (Session 4)
+- **Fixed Runtime Errors in All 5 Tabs**
+- Fixed `useProfileCompletion` hook - created new hook for profile completion percentage
+- Fixed `useUpdateProfile` signature mismatch in DetentionSettingsModal and InvoiceSettingsModal
+- Fixed `VALIDATION_RULES` key names (snake_case → camelCase)
+- Fixed infinite re-render in `useAuthSync` - memoized Zustand store actions
+- Fixed infinite re-render in Home tab - memoized `todayStart` variable
+- Fixed hook order in ProfileTab - moved all useCallback before early returns
+- Added `useAgingSummary` alias as `useInvoiceSummary` for backward compatibility
+- Added `useMostUsedContacts` alias as `useFrequentContacts` for backward compatibility
+- All 5 tabs (Home, Facilities, History, Invoices, Profile) now loading without errors
+- Committed and pushed to GitHub (v2 branch)
+
 ### January 16, 2026 (Session 3)
 - **Major Code Cleanup - Deleted 17 broken TanStack Query hooks**
 - All feature modules now export Convex hooks + pure utility functions
