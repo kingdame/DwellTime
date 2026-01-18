@@ -10,3 +10,4 @@ export { PremiumButton } from './PremiumButton';
 export { StatusBadge } from './StatusBadge';
 export { LargeNumber } from './LargeNumber';
 export { StatCard } from './StatCard';
+export { CircularTimer } from './CircularTimer';

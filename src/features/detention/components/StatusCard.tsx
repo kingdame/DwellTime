@@ -1,9 +1,9 @@
 /**
  * StatusCard Component - Premium Edition
- * Glass-morphism card with animated tracking status
+ * Glass-morphism card with animated circular timer
  */
 
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useAnimatedStyle,
@@ -16,9 +16,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useEffect } from 'react';
 import { colors } from '../../../constants/colors';
-import { GlassCard, StatusBadge, PremiumButton } from '../../../shared/components/ui';
-import { spacing, typography, radius } from '../../../shared/theme/tokens';
-import { TimerDisplay } from './TimerDisplay';
+import { GlassCard, StatusBadge, PremiumButton, CircularTimer } from '../../../shared/components/ui';
+import { spacing, typography, radius, palette } from '../../../shared/theme/tokens';
 
 export interface DetentionTimerState {
   isActive: boolean;
@@ -35,15 +34,37 @@ interface StatusCardProps {
   timerState: DetentionTimerState;
   onStartTracking: () => void;
   onStopTracking: () => void;
+  facilityName?: string;
+  gracePeriodMinutes?: number;
+  hourlyRate?: number;
 }
 
 export function StatusCard({
   timerState,
   onStartTracking,
   onStopTracking,
+  facilityName,
+  gracePeriodMinutes = 120,
+  hourlyRate = 75,
 }: StatusCardProps) {
   const theme = colors.dark;
   const isActive = timerState.isActive;
+
+  // Calculate earnings from detention time
+  const earnings = timerState.detentionMs > 0 
+    ? (timerState.detentionMs / (1000 * 60 * 60)) * hourlyRate 
+    : 0;
+
+  // Calculate elapsed seconds for CircularTimer
+  const elapsedSeconds = Math.floor(timerState.elapsedMs / 1000);
+  const gracePeriodSeconds = gracePeriodMinutes * 60;
+
+  // Determine timer status
+  const timerStatus = !isActive 
+    ? 'ready' 
+    : timerState.isInGracePeriod 
+      ? 'grace' 
+      : 'detention';
 
   // Animated glow for active state
   const glowOpacity = useSharedValue(0);
@@ -102,64 +123,43 @@ export function StatusCard({
         </Animated.View>
       )}
 
-      <GlassCard padding="xxl">
-        {/* Status Header */}
-        <View style={styles.header}>
-          <StatusBadge
-            status={isActive ? (timerState.isInGracePeriod ? 'info' : 'active') : 'neutral'}
-            label={
-              isActive
-                ? timerState.isInGracePeriod
-                  ? 'Grace Period'
-                  : 'Earning'
-                : 'Ready'
-            }
-            pulse={isActive}
-            size="medium"
+      <GlassCard padding="lg">
+        {/* Circular Timer - Always visible */}
+        <Pressable 
+          onPress={!isActive ? onStartTracking : undefined}
+          style={styles.timerContainer}
+        >
+          <CircularTimer
+            elapsedSeconds={elapsedSeconds}
+            gracePeriodSeconds={gracePeriodSeconds}
+            status={timerStatus}
+            earnings={earnings}
+            facilityName={isActive ? facilityName : undefined}
+            size={280}
+            strokeWidth={10}
           />
-        </View>
+        </Pressable>
 
-        {/* Content based on state */}
-        {isActive ? (
-          <>
-            <TimerDisplay
-              elapsedFormatted={timerState.elapsedFormatted}
-              detentionFormatted={timerState.detentionFormatted}
-              earningsFormatted={timerState.earningsFormatted}
-              isInGracePeriod={timerState.isInGracePeriod}
+        {/* Action Button */}
+        <View style={styles.buttonContainer}>
+          {isActive ? (
+            <PremiumButton
+              title="End Detention"
+              onPress={onStopTracking}
+              variant="danger"
+              size="large"
+              fullWidth
             />
-            <View style={styles.buttonContainer}>
-              <PremiumButton
-                title="End Detention"
-                onPress={onStopTracking}
-                variant="danger"
-                size="large"
-                fullWidth
-              />
-            </View>
-          </>
-        ) : (
-          <>
-            <View style={styles.idleContent}>
-              <Text style={[styles.idleTitle, { color: theme.textPrimary }]}>
-                Ready to Track
-              </Text>
-              <Text style={[styles.description, { color: theme.textSecondary }]}>
-                Start tracking when you arrive at a facility to document detention
-                time and earn your money.
-              </Text>
-            </View>
-            <View style={styles.buttonContainer}>
-              <PremiumButton
-                title="Start Tracking"
-                onPress={onStartTracking}
-                variant="primary"
-                size="large"
-                fullWidth
-              />
-            </View>
-          </>
-        )}
+          ) : (
+            <PremiumButton
+              title="Start Tracking"
+              onPress={onStartTracking}
+              variant="primary"
+              size="large"
+              fullWidth
+            />
+          )}
+        </View>
       </GlassCard>
     </Animated.View>
   );
@@ -182,24 +182,12 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: radius.xxl,
   },
-  header: {
-    marginBottom: spacing.lg,
-  },
-  idleContent: {
-    paddingVertical: spacing.xxl,
-  },
-  idleTitle: {
-    fontSize: typography.size.xxl,
-    fontWeight: typography.weight.bold,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  description: {
-    fontSize: typography.size.lg,
-    lineHeight: typography.size.lg * typography.leading.relaxed,
-    textAlign: 'center',
+  timerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.lg,
   },
   buttonContainer: {
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
   },
 });
