@@ -136,8 +136,70 @@ export const getFleetEvents = query({
 // MUTATIONS
 // ============================================================================
 
+// ============================================================================
+// SUBSCRIPTION LIMITS
+// ============================================================================
+
+const SUBSCRIPTION_LIMITS = {
+  free: 3,      // 3 events per month
+  pro: -1,      // Unlimited
+  small_fleet: -1,
+  fleet: -1,
+  enterprise: -1,
+} as const;
+
+/**
+ * Check if user can create a new event based on subscription tier
+ */
+export const checkEventLimit = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    // Get user's subscription tier
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      return { canCreate: false, reason: "User not found", remaining: 0 };
+    }
+
+    const tier = user.subscriptionTier || "free";
+    const limit = SUBSCRIPTION_LIMITS[tier as keyof typeof SUBSCRIPTION_LIMITS];
+
+    // Unlimited for paid tiers
+    if (limit === -1) {
+      return { canCreate: true, reason: null, remaining: -1 };
+    }
+
+    // Count events this month for free tier
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+    const eventsThisMonth = await ctx.db
+      .query("detentionEvents")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .filter((q) => q.gte(q.field("arrivalTime"), startOfMonth))
+      .collect();
+
+    const used = eventsThisMonth.length;
+    const remaining = limit - used;
+
+    if (remaining <= 0) {
+      return {
+        canCreate: false,
+        reason: `You've used all ${limit} free events this month. Upgrade to Pro for unlimited tracking.`,
+        remaining: 0,
+        used,
+        limit,
+      };
+    }
+
+    return { canCreate: true, reason: null, remaining, used, limit };
+  },
+});
+
 /**
  * Start a new detention event (check-in at facility)
+ * Enforces subscription limits for free tier users
  */
 export const start = mutation({
   args: {
@@ -151,6 +213,33 @@ export const start = mutation({
     fleetMemberId: v.optional(v.id("fleetMembers")),
   },
   handler: async (ctx, args) => {
+    // Check subscription limits
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const tier = user.subscriptionTier || "free";
+    const limit = SUBSCRIPTION_LIMITS[tier as keyof typeof SUBSCRIPTION_LIMITS];
+
+    // Enforce limit for free tier
+    if (limit !== -1) {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+      const eventsThisMonth = await ctx.db
+        .query("detentionEvents")
+        .withIndex("by_user", (q) => q.eq("userId", args.userId))
+        .filter((q) => q.gte(q.field("arrivalTime"), startOfMonth))
+        .collect();
+
+      if (eventsThisMonth.length >= limit) {
+        throw new Error(
+          `Free tier limit reached (${limit} events/month). Upgrade to Pro for unlimited tracking at $12.99/month.`
+        );
+      }
+    }
+
     const now = Date.now();
     const gracePeriodEnd = now + args.gracePeriodMinutes * 60 * 1000;
 

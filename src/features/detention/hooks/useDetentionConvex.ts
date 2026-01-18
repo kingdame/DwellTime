@@ -61,6 +61,16 @@ export function useDetentionEventsByFacility(
 }
 
 /**
+ * Check if user can create a new event (subscription limit check)
+ */
+export function useEventLimit(userId: Id<"users"> | undefined) {
+  return useQuery(
+    api.detentionEvents.checkEventLimit,
+    userId ? { userId } : "skip"
+  );
+}
+
+/**
  * Get fleet events (admin view)
  */
 export function useFleetDetentionEvents(

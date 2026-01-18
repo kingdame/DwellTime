@@ -3,11 +3,15 @@
  *
  * Setup required:
  * 1. Set RESEND_API_KEY in Convex environment
- * 2. Verify your domain in Resend dashboard
+ * 2. Set RESEND_FROM_EMAIL in Convex environment (e.g., "invoices@dwelltime.app")
+ * 3. Verify your domain in Resend dashboard
  */
 
 import { v } from "convex/values";
 import { action, mutation, query } from "./_generated/server";
+
+// Default from address - override with RESEND_FROM_EMAIL env var
+const DEFAULT_FROM_EMAIL = "DwellTime <noreply@dwelltime.app>";
 
 // ============================================================================
 // EMAIL SENDING ACTION
@@ -48,7 +52,7 @@ export const sendInvoiceEmail = action({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "DwellTime <invoices@yourdomain.com>", // Update with your verified domain
+          from: process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL,
           to: args.recipientEmail,
           subject: args.subject,
           html,
@@ -112,7 +116,7 @@ export const sendFleetInvoiceEmail = action({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "DwellTime <invoices@yourdomain.com>",
+          from: process.env.RESEND_FROM_EMAIL || DEFAULT_FROM_EMAIL,
           to: args.recipientEmail,
           subject: args.subject,
           html,
