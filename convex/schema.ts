@@ -127,6 +127,45 @@ export default defineSchema({
   // Note: Geo queries in Convex require custom logic or external service
 
   /**
+   * Saved Facilities - User bookmarked/saved facilities
+   * Supports both Convex facilities and Google Places
+   */
+  savedFacilities: defineTable({
+    userId: v.id("users"),
+
+    // Reference to Convex facility (if from our database)
+    facilityId: v.optional(v.id("facilities")),
+
+    // Google Place ID (if from Google Places API)
+    googlePlaceId: v.optional(v.string()),
+
+    // Cached facility info (so we don't need to fetch it every time)
+    name: v.string(),
+    address: v.optional(v.string()),
+    city: v.optional(v.string()),
+    state: v.optional(v.string()),
+    lat: v.number(),
+    lng: v.number(),
+    facilityType: v.optional(
+      v.union(
+        v.literal("shipper"),
+        v.literal("receiver"),
+        v.literal("both"),
+        v.literal("unknown")
+      )
+    ),
+
+    // User notes
+    notes: v.optional(v.string()),
+
+    // Timestamp
+    savedAt: v.number(), // Unix milliseconds
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_facility", ["userId", "facilityId"])
+    .index("by_user_google_place", ["userId", "googlePlaceId"]),
+
+  /**
    * Detention Events - Core tracking data
    * Migrated from: detention_events table
    */

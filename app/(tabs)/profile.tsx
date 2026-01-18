@@ -3,9 +3,12 @@
  */
 
 import { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ActivityIndicator, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth, useClerk } from '@clerk/clerk-expo';
+import { useQuery } from 'convex/react';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { colors } from '../../src/constants/colors';
 import {
   EditableSettingRow,
@@ -18,6 +21,7 @@ import {
 } from '../../src/features/profile';
 import { useCurrentUserId, useCurrentUser } from '../../src/features/auth';
 import { useUser, useUpdateUser } from '../../src/shared/hooks/convex';
+import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 
 export default function ProfileTab() {
@@ -69,29 +73,74 @@ export default function ProfileTab() {
     );
   }, [signOut, router]);
 
-  const handleExportData = useCallback(() => {
+  // State for export
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportData = useCallback(async () => {
+    if (!userId || isExporting) return;
+
     Alert.alert(
       'Export Data',
-      'Export all your detention records and invoices?',
+      'Export all your detention records, invoices, and reviews as JSON?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Export',
-          onPress: () => {
-            Alert.alert('Coming Soon', 'Visit the History tab to export your data');
+          onPress: async () => {
+            setIsExporting(true);
+            try {
+              // Fetch export data from Convex
+              const response = await fetch(
+                `${process.env.EXPO_PUBLIC_CONVEX_URL}/api/query`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    path: 'users:exportUserData',
+                    args: { userId },
+                  }),
+                }
+              );
+              
+              if (!response.ok) {
+                throw new Error('Failed to fetch export data');
+              }
+
+              const exportData = await response.json();
+              const jsonString = JSON.stringify(exportData.value || exportData, null, 2);
+              
+              // Save to file
+              const fileName = `dwelltime-export-${new Date().toISOString().split('T')[0]}.json`;
+              const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+              
+              await FileSystem.writeAsStringAsync(fileUri, jsonString);
+              
+              // Check if sharing is available
+              const isShareAvailable = await Sharing.isAvailableAsync();
+              
+              if (isShareAvailable) {
+                await Sharing.shareAsync(fileUri, {
+                  mimeType: 'application/json',
+                  dialogTitle: 'Export Your Data',
+                });
+              } else {
+                Alert.alert('Export Complete', `Data saved to ${fileName}`);
+              }
+            } catch (error) {
+              console.error('Export error:', error);
+              Alert.alert('Export Failed', 'Unable to export your data. Please try again later.');
+            } finally {
+              setIsExporting(false);
+            }
           },
         },
       ]
     );
-  }, []);
+  }, [userId, isExporting]);
 
   const handleHelp = useCallback(() => {
-    Alert.alert(
-      'Help & Support',
-      'Need assistance?\n\nEmail: support@dwelltime.app\n\nVisit our website for FAQs and guides.',
-      [{ text: 'OK' }]
-    );
-  }, []);
+    router.push('/help');
+  }, [router]);
 
   // Show loading if user not loaded
   if (convexUser === undefined) {
@@ -201,6 +250,27 @@ export default function ProfileTab() {
           onEdit={() => setShowInvoiceModal(true)}
         />
 
+        {/* Subscription */}
+        <SettingSectionHeader title="Subscription" />
+
+        <Pressable
+          style={[styles.upgradeCard, { backgroundColor: theme.primary + '15' }]}
+          onPress={() => router.push('/subscription')}
+        >
+          <View style={styles.upgradeContent}>
+            <Text style={styles.upgradeIcon}>⭐</Text>
+            <View style={styles.upgradeText}>
+              <Text style={[styles.upgradeTier, { color: theme.primary }]}>
+                {user.subscription_tier === 'free' ? 'Free Plan' : user.subscription_tier.replace('_', ' ').toUpperCase()}
+              </Text>
+              <Text style={[styles.upgradeLabel, { color: theme.textSecondary }]}>
+                {user.subscription_tier === 'free' ? 'Upgrade to unlock all features' : 'Manage your subscription'}
+              </Text>
+            </View>
+          </View>
+          <Text style={[styles.menuArrow, { color: theme.primary }]}>›</Text>
+        </Pressable>
+
         {/* Other Settings */}
         <SettingSectionHeader title="Account" />
 
@@ -222,7 +292,10 @@ export default function ProfileTab() {
           <Text style={[styles.menuArrow, { color: theme.textSecondary }]}>›</Text>
         </Pressable>
 
-        <Pressable style={[styles.menuItem, { backgroundColor: theme.card }]}>
+        <Pressable
+          style={[styles.menuItem, { backgroundColor: theme.card }]}
+          onPress={() => router.push('/legal')}
+        >
           <Text style={styles.menuIcon}>📜</Text>
           <Text style={[styles.menuText, { color: theme.textPrimary }]}>Terms & Privacy</Text>
           <Text style={[styles.menuArrow, { color: theme.textSecondary }]}>›</Text>
@@ -370,6 +443,36 @@ const styles = StyleSheet.create({
   },
   menuArrow: {
     fontSize: 20,
+  },
+  upgradeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+  },
+  upgradeContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  upgradeIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  upgradeText: {
+    flex: 1,
+  },
+  upgradeTier: {
+    fontSize: 16,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  upgradeLabel: {
+    fontSize: 13,
+    marginTop: 2,
   },
   signOutButton: {
     marginTop: 16,

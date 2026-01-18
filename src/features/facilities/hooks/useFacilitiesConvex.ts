@@ -161,3 +161,54 @@ export function useCreateReview() {
 export function useReportPayment() {
   return useMutation(api.facilityReviews.reportPayment);
 }
+
+// ============================================================================
+// SAVED FACILITIES
+// ============================================================================
+
+/**
+ * Get saved facilities for a user
+ */
+export function useSavedFacilities(userId: Id<"users"> | undefined, limit?: number) {
+  return useQuery(
+    api.facilities.getSavedFacilities,
+    userId ? { userId, limit } : "skip"
+  );
+}
+
+/**
+ * Check if a facility is saved
+ */
+export function useIsFacilitySaved(
+  userId: Id<"users"> | undefined,
+  facilityId?: Id<"facilities">,
+  googlePlaceId?: string
+) {
+  return useQuery(
+    api.facilities.isFacilitySaved,
+    userId && (facilityId || googlePlaceId)
+      ? { userId, facilityId, googlePlaceId }
+      : "skip"
+  );
+}
+
+/**
+ * Save a facility
+ */
+export function useSaveFacility() {
+  return useMutation(api.facilities.saveFacility);
+}
+
+/**
+ * Unsave a facility
+ */
+export function useUnsaveFacility() {
+  return useMutation(api.facilities.unsaveFacility);
+}
+
+/**
+ * Update notes on a saved facility
+ */
+export function useUpdateSavedFacilityNotes() {
+  return useMutation(api.facilities.updateSavedFacilityNotes);
+}

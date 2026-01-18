@@ -30,6 +30,9 @@ import { AmenitiesEditModal } from './AmenitiesEditModal';
 import {
   useFacilityReviews,
   useFacilityPaymentStats,
+  useIsFacilitySaved,
+  useSaveFacility,
+  useUnsaveFacility,
 } from '../hooks/useFacilitiesConvex';
 import type { Id } from '../../../../convex/_generated/dataModel';
 
@@ -125,7 +128,7 @@ function ReviewCard({ review, index }: ReviewCardProps) {
 }
 
 interface Facility {
-  _id: Id<'facilities'>;
+  _id: Id<'facilities'> | string;
   name: string;
   address?: string;
   city?: string;
@@ -162,9 +165,23 @@ export function FacilityDetailScreen({
 }: FacilityDetailScreenProps) {
   const theme = colors.dark;
 
-  // Convex data
-  const reviews = useFacilityReviews(facility._id, 10);
-  const paymentStats = useFacilityPaymentStats(facility._id);
+  // Check if this is a Google Places facility (not in our database)
+  const isGoogleFacility = typeof facility._id === 'string' && facility._id.startsWith('google-');
+  const convexFacilityId = isGoogleFacility ? undefined : (facility._id as Id<'facilities'>);
+
+  // Convex data - only query if it's a real Convex facility
+  const reviews = useFacilityReviews(convexFacilityId, 10);
+  const paymentStats = useFacilityPaymentStats(convexFacilityId);
+
+  // Saved facility state
+  const isSaved = useIsFacilitySaved(
+    userId,
+    convexFacilityId,
+    facility.googlePlaceId
+  );
+  const saveFacility = useSaveFacility();
+  const unsaveFacility = useUnsaveFacility();
+  const [savingInProgress, setSavingInProgress] = useState(false);
 
   // Modal state
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -202,6 +219,42 @@ export function FacilityDetailScreen({
     setShowAmenitiesModal(true);
   }, []);
 
+  const handleToggleSave = useCallback(async () => {
+    if (!userId || savingInProgress) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSavingInProgress(true);
+
+    try {
+      if (isSaved) {
+        // Unsave the facility
+        await unsaveFacility({
+          userId,
+          facilityId: convexFacilityId,
+          googlePlaceId: facility.googlePlaceId,
+        });
+      } else {
+        // Save the facility
+        await saveFacility({
+          userId,
+          facilityId: convexFacilityId,
+          googlePlaceId: facility.googlePlaceId,
+          name: facility.name,
+          address: facility.address,
+          city: facility.city,
+          state: facility.state,
+          lat: facility.lat,
+          lng: facility.lng,
+          facilityType: facility.facilityType === 'unknown' ? undefined : facility.facilityType,
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling save:', error);
+    } finally {
+      setSavingInProgress(false);
+    }
+  }, [userId, isSaved, savingInProgress, saveFacility, unsaveFacility, convexFacilityId, facility]);
+
   // Format address
   const fullAddress = [facility.address, facility.city, facility.state, facility.zip]
     .filter(Boolean)
@@ -227,11 +280,35 @@ export function FacilityDetailScreen({
       >
         {/* Header */}
         <Animated.View style={[styles.header, headerStyle]}>
-          {onBack && (
-            <Pressable style={styles.backButton} onPress={onBack}>
-              <Text style={styles.backButtonText}>← Back</Text>
-            </Pressable>
-          )}
+          <View style={styles.headerTop}>
+            {onBack && (
+              <Pressable style={styles.backButton} onPress={onBack}>
+                <Text style={styles.backButtonText}>← Back</Text>
+              </Pressable>
+            )}
+            {userId && (
+              <Pressable
+                style={[
+                  styles.saveButton,
+                  isSaved && styles.saveButtonActive,
+                ]}
+                onPress={handleToggleSave}
+                disabled={savingInProgress}
+              >
+                <Text style={styles.saveButtonIcon}>
+                  {isSaved ? '🔖' : '🏷️'}
+                </Text>
+                <Text
+                  style={[
+                    styles.saveButtonText,
+                    isSaved && styles.saveButtonTextActive,
+                  ]}
+                >
+                  {savingInProgress ? '...' : isSaved ? 'Saved' : 'Save'}
+                </Text>
+              </Pressable>
+            )}
+          </View>
           <Text style={styles.facilityName}>{facility.name}</Text>
           <Text style={styles.facilityAddress}>{fullAddress || 'Address not available'}</Text>
 
@@ -342,14 +419,22 @@ export function FacilityDetailScreen({
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>📝 Driver Reviews</Text>
-            {userId && (
+            {userId && !isGoogleFacility && (
               <Pressable style={styles.writeReviewButton} onPress={handleWriteReview}>
                 <Text style={styles.writeReviewText}>+ Write Review</Text>
               </Pressable>
             )}
           </View>
 
-          {reviews && reviews.length > 0 ? (
+          {isGoogleFacility ? (
+            <GlassCard padding="xl" style={styles.emptyReviews}>
+              <Text style={styles.emptyIcon}>🔍</Text>
+              <Text style={styles.emptyText}>New Facility</Text>
+              <Text style={styles.emptySubtext}>
+                This facility isn't in our database yet. Track detention here to add it!
+              </Text>
+            </GlassCard>
+          ) : reviews && reviews.length > 0 ? (
             <View style={styles.reviewsList}>
               {reviews.map((review, index) => (
                 <ReviewCard key={review._id} review={review} index={index} />
@@ -376,34 +461,36 @@ export function FacilityDetailScreen({
         <View style={styles.bottomPadding} />
       </ScrollView>
 
-      {/* Modals */}
-      {userId && (
+      {/* Modals - only render for Convex facilities */}
+      {userId && convexFacilityId && (
         <FacilityReviewModal
           visible={showReviewModal}
           onClose={() => setShowReviewModal(false)}
-          facilityId={facility._id}
+          facilityId={convexFacilityId}
           facilityName={facility.name}
           userId={userId}
           detentionEventId={detentionEventId}
         />
       )}
 
-      <AmenitiesEditModal
-        visible={showAmenitiesModal}
-        onClose={() => setShowAmenitiesModal(false)}
-        facilityId={facility._id}
-        facilityName={facility.name}
-        currentAmenities={{
-          overnightParking: facility.overnightParking,
-          parkingSpaces: facility.parkingSpaces,
-          restrooms: facility.restrooms,
-          driverLounge: facility.driverLounge,
-          waterAvailable: facility.waterAvailable,
-          vendingMachines: facility.vendingMachines,
-          wifiAvailable: facility.wifiAvailable,
-          showersAvailable: facility.showersAvailable,
-        }}
-      />
+      {convexFacilityId && (
+        <AmenitiesEditModal
+          visible={showAmenitiesModal}
+          onClose={() => setShowAmenitiesModal(false)}
+          facilityId={convexFacilityId}
+          facilityName={facility.name}
+          currentAmenities={{
+            overnightParking: facility.overnightParking,
+            parkingSpaces: facility.parkingSpaces,
+            restrooms: facility.restrooms,
+            driverLounge: facility.driverLounge,
+            waterAvailable: facility.waterAvailable,
+            vendingMachines: facility.vendingMachines,
+            wifiAvailable: facility.wifiAvailable,
+            showersAvailable: facility.showersAvailable,
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -417,13 +504,43 @@ const styles = StyleSheet.create({
     marginTop: 40,
     marginBottom: spacing.xl,
   },
-  backButton: {
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: spacing.md,
   },
+  backButton: {},
   backButtonText: {
     fontSize: typography.size.md,
     color: palette.dark.primary,
     fontWeight: typography.weight.medium,
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: palette.dark.divider,
+    backgroundColor: palette.dark.card,
+    gap: spacing.xs,
+  },
+  saveButtonActive: {
+    borderColor: palette.dark.primary,
+    backgroundColor: palette.dark.primaryMuted,
+  },
+  saveButtonIcon: {
+    fontSize: 16,
+  },
+  saveButtonText: {
+    fontSize: typography.size.sm,
+    fontWeight: typography.weight.medium,
+    color: palette.dark.textSecondary,
+  },
+  saveButtonTextActive: {
+    color: palette.dark.primary,
   },
   facilityName: {
     fontSize: typography.size.display,

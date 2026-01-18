@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, Dimensions } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop, G } from 'react-native-svg';
 import Animated, {
   useSharedValue,
@@ -14,10 +14,9 @@ import Animated, {
   withSequence,
   withSpring,
   Easing,
-  interpolate,
   useAnimatedStyle,
 } from 'react-native-reanimated';
-import { palette, typography, spacing, shadows, animation } from '../../theme/tokens';
+import { palette, typography, spacing, animation } from '../../theme/tokens';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -60,18 +59,18 @@ export function CircularTimer({
   earnings = 0,
   facilityName,
   size = 280,
-  strokeWidth = 12,
+  strokeWidth = 10,
 }: CircularTimerProps) {
   // Calculate dimensions
   const center = size / 2;
-  const radius = (size - strokeWidth) / 2 - 8; // Account for glow
+  const radius = (size - strokeWidth) / 2 - 4;
   const circumference = 2 * Math.PI * radius;
+  const innerSize = radius * 2 - strokeWidth * 2;
 
   // Animated values
   const progress = useSharedValue(0);
   const pulseScale = useSharedValue(1);
   const glowOpacity = useSharedValue(0.3);
-  const rotateValue = useSharedValue(0);
 
   // Calculate progress based on status
   useEffect(() => {
@@ -79,7 +78,6 @@ export function CircularTimer({
 
     if (status === 'ready') {
       targetProgress = 0;
-      // Subtle idle pulse
       pulseScale.value = withRepeat(
         withSequence(
           withTiming(1.02, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
@@ -97,16 +95,14 @@ export function CircularTimer({
         true
       );
     } else if (status === 'grace') {
-      // Progress fills during grace period (0-100%)
       targetProgress = Math.min(elapsedSeconds / gracePeriodSeconds, 1);
       pulseScale.value = 1;
-      glowOpacity.value = 0.5;
+      glowOpacity.value = 0.6;
     } else if (status === 'detention') {
-      // Full circle when in detention, with continuous glow
       targetProgress = 1;
       pulseScale.value = withRepeat(
         withSequence(
-          withTiming(1.03, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1.02, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
           withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) })
         ),
         -1,
@@ -115,16 +111,10 @@ export function CircularTimer({
       glowOpacity.value = withRepeat(
         withSequence(
           withTiming(0.6, { duration: 1000 }),
-          withTiming(0.8, { duration: 1000 })
+          withTiming(0.9, { duration: 1000 })
         ),
         -1,
         true
-      );
-      // Subtle rotation for active effect
-      rotateValue.value = withRepeat(
-        withTiming(360, { duration: 60000, easing: Easing.linear }),
-        -1,
-        false
       );
     } else if (status === 'completed') {
       targetProgress = 1;
@@ -136,7 +126,7 @@ export function CircularTimer({
       duration: 800,
       easing: Easing.out(Easing.cubic),
     });
-  }, [status, elapsedSeconds, gracePeriodSeconds, progress, pulseScale, glowOpacity, rotateValue]);
+  }, [status, elapsedSeconds, gracePeriodSeconds, progress, pulseScale, glowOpacity]);
 
   // Animated props for the progress circle
   const animatedCircleProps = useAnimatedProps(() => {
@@ -165,6 +155,7 @@ export function CircularTimer({
           secondary: palette.dark.primaryMuted,
           text: palette.dark.textSecondary,
           gradient: ['#3B82F6', '#60A5FA'] as const,
+          glow: '#3B82F6',
         };
       case 'grace':
         return {
@@ -172,6 +163,7 @@ export function CircularTimer({
           secondary: palette.dark.warningMuted,
           text: palette.dark.warning,
           gradient: ['#F97316', '#FBBF24'] as const,
+          glow: '#F97316',
         };
       case 'detention':
       case 'completed':
@@ -180,6 +172,7 @@ export function CircularTimer({
           secondary: palette.moneyMuted,
           text: palette.money,
           gradient: ['#22C55E', '#4ADE80'] as const,
+          glow: '#22C55E',
         };
     }
   }, [status]);
@@ -192,7 +185,7 @@ export function CircularTimer({
       case 'grace':
         return 'GRACE PERIOD';
       case 'detention':
-        return 'DETENTION';
+        return 'EARNING';
       case 'completed':
         return 'COMPLETED';
     }
@@ -201,35 +194,31 @@ export function CircularTimer({
   return (
     <View style={[styles.container, { width: size, height: size }]}>
       {/* Glow effect layer */}
-      <Animated.View style={[styles.glowLayer, glowStyle]}>
+      <Animated.View style={[styles.glowLayer, { width: size, height: size }, glowStyle]}>
         <View
           style={[
             styles.glow,
             {
-              width: size - 20,
-              height: size - 20,
-              borderRadius: (size - 20) / 2,
-              backgroundColor: colors.primary,
+              width: size - 40,
+              height: size - 40,
+              borderRadius: (size - 40) / 2,
+              backgroundColor: colors.glow,
             },
           ]}
         />
       </Animated.View>
 
       {/* SVG Progress Ring */}
-      <Animated.View style={pulseStyle}>
+      <Animated.View style={[styles.svgContainer, pulseStyle]}>
         <Svg width={size} height={size}>
           <Defs>
             <LinearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
               <Stop offset="0%" stopColor={colors.gradient[0]} />
               <Stop offset="100%" stopColor={colors.gradient[1]} />
             </LinearGradient>
-            <LinearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor={palette.dark.backgroundSecondary} />
-              <Stop offset="100%" stopColor={palette.dark.card} />
-            </LinearGradient>
           </Defs>
 
-          {/* Background circle */}
+          {/* Background track circle */}
           <Circle
             cx={center}
             cy={center}
@@ -240,7 +229,7 @@ export function CircularTimer({
             opacity={0.3}
           />
 
-          {/* Track circle (subtle) */}
+          {/* Colored track circle */}
           <Circle
             cx={center}
             cy={center}
@@ -248,7 +237,7 @@ export function CircularTimer({
             stroke={colors.secondary}
             strokeWidth={strokeWidth}
             fill="none"
-            opacity={0.5}
+            opacity={0.4}
           />
 
           {/* Animated progress circle */}
@@ -268,44 +257,44 @@ export function CircularTimer({
         </Svg>
       </Animated.View>
 
-      {/* Center content */}
-      <View style={styles.centerContent}>
+      {/* Center content - perfectly centered */}
+      <View style={[styles.centerContent, { width: innerSize, height: innerSize }]}>
         {/* Status badge */}
         <View style={[styles.statusBadge, { backgroundColor: colors.secondary }]}>
           <View style={[styles.statusDot, { backgroundColor: colors.primary }]} />
           <Text style={[styles.statusText, { color: colors.text }]}>{statusLabel}</Text>
         </View>
 
-        {/* Timer display */}
-        <Text style={[styles.timerText, { color: palette.dark.textPrimary }]}>
+        {/* Timer display - main focal point */}
+        <Text style={styles.timerText}>
           {formatTime(elapsedSeconds)}
         </Text>
 
-        {/* Facility name or hint */}
-        {facilityName ? (
+        {/* Conditional content based on status */}
+        {status === 'ready' && (
+          <Text style={styles.hintText}>Tap to start tracking</Text>
+        )}
+
+        {facilityName && status !== 'ready' && (
           <Text style={styles.facilityName} numberOfLines={1}>
             {facilityName}
           </Text>
-        ) : status === 'ready' ? (
-          <Text style={styles.hintText}>Tap to start tracking</Text>
-        ) : null}
-
-        {/* Earnings (shown during detention) */}
-        {(status === 'detention' || status === 'completed') && earnings > 0 && (
-          <View style={styles.earningsContainer}>
-            <Text style={styles.earningsLabel}>EARNED</Text>
-            <Text style={[styles.earningsText, { color: colors.primary }]}>
-              {formatCurrency(earnings)}
-            </Text>
-          </View>
         )}
 
-        {/* Grace period countdown */}
         {status === 'grace' && (
           <View style={styles.graceContainer}>
             <Text style={styles.graceLabel}>Grace ends in</Text>
             <Text style={[styles.graceTime, { color: colors.primary }]}>
               {formatTime(Math.max(0, gracePeriodSeconds - elapsedSeconds))}
+            </Text>
+          </View>
+        )}
+
+        {(status === 'detention' || status === 'completed') && earnings > 0 && (
+          <View style={styles.earningsContainer}>
+            <Text style={styles.earningsLabel}>EARNED</Text>
+            <Text style={[styles.earningsText, { color: colors.primary }]}>
+              {formatCurrency(earnings)}
             </Text>
           </View>
         )}
@@ -316,9 +305,9 @@ export function CircularTimer({
 
 const styles = StyleSheet.create({
   container: {
+    position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
   },
   glowLayer: {
     position: 'absolute',
@@ -328,24 +317,26 @@ const styles = StyleSheet.create({
   glow: {
     ...Platform.select({
       ios: {
-        shadowColor: '#22C55E',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.5,
-        shadowRadius: 30,
+        shadowRadius: 40,
       },
       android: {
         elevation: 20,
       },
       web: {
-        // Web uses filter for glow
+        // CSS filter for glow effect
       },
     }),
+  },
+  svgContainer: {
+    position: 'absolute',
   },
   centerContent: {
     position: 'absolute',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -353,7 +344,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: 20,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
   statusDot: {
     width: 6,
@@ -363,26 +354,29 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: typography.size.xs,
-    fontWeight: typography.weight.semibold,
+    fontWeight: typography.weight.bold,
     letterSpacing: typography.tracking.wider,
   },
   timerText: {
-    fontSize: typography.size.timer,
-    fontWeight: typography.weight.bold,
+    fontSize: 42,
+    fontWeight: '700',
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    letterSpacing: typography.tracking.timer,
-  },
-  facilityName: {
-    fontSize: typography.size.sm,
-    color: palette.dark.textSecondary,
-    marginTop: spacing.xs,
-    maxWidth: 180,
+    letterSpacing: 2,
+    color: palette.dark.textPrimary,
     textAlign: 'center',
   },
   hintText: {
     fontSize: typography.size.sm,
     color: palette.dark.textTertiary,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  facilityName: {
+    fontSize: typography.size.sm,
+    color: palette.dark.textSecondary,
+    marginTop: spacing.xs,
+    maxWidth: 160,
+    textAlign: 'center',
   },
   earningsContainer: {
     marginTop: spacing.md,
@@ -408,7 +402,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xxs,
   },
   graceTime: {
-    fontSize: typography.size.lg,
+    fontSize: typography.size.md,
     fontWeight: typography.weight.semibold,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },

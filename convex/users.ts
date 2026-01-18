@@ -248,3 +248,143 @@ export const setCurrentFleet = mutation({
     });
   },
 });
+
+// ============================================================================
+// DATA EXPORT
+// ============================================================================
+
+/**
+ * Export all user data for GDPR compliance and data portability
+ * Returns user profile, detention events, invoices, reviews, and saved facilities
+ */
+export const exportUserData = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    // Get user profile
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get detention events
+    const detentionEvents = await ctx.db
+      .query("detentionEvents")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Get invoices
+    const invoices = await ctx.db
+      .query("invoices")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Get facility reviews
+    const reviews = await ctx.db
+      .query("facilityReviews")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Get saved facilities
+    const savedFacilities = await ctx.db
+      .query("savedFacilities")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Get photos (metadata only, not the actual images)
+    const photoMetadata: Array<{
+      eventId: string;
+      storageUrl: string;
+      createdAt: number;
+      caption?: string;
+    }> = [];
+    for (const event of detentionEvents) {
+      const photos = await ctx.db
+        .query("photos")
+        .withIndex("by_event", (q) => q.eq("detentionEventId", event._id))
+        .collect();
+      for (const photo of photos) {
+        photoMetadata.push({
+          eventId: event._id,
+          storageUrl: photo.storageUrl,
+          createdAt: photo._creationTime,
+          caption: photo.caption,
+        });
+      }
+    }
+
+    // Build export object
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        phone: user.phone,
+        companyName: user.companyName,
+        hourlyRate: user.hourlyRate,
+        gracePeriodMinutes: user.gracePeriodMinutes,
+        subscriptionTier: user.subscriptionTier,
+        createdAt: user._creationTime,
+      },
+      detentionEvents: detentionEvents.map((e) => ({
+        id: e._id,
+        facilityId: e.facilityId,
+        loadReference: e.loadReference,
+        eventType: e.eventType,
+        arrivalTime: e.arrivalTime,
+        departureTime: e.departureTime,
+        detentionMinutes: e.detentionMinutes,
+        hourlyRate: e.hourlyRate,
+        totalAmount: e.totalAmount,
+        status: e.status,
+        notes: e.notes,
+        createdAt: e._creationTime,
+      })),
+      invoices: invoices.map((i) => ({
+        id: i._id,
+        invoiceNumber: i.invoiceNumber,
+        totalAmount: i.totalAmount,
+        status: i.status,
+        recipientName: i.recipientName,
+        recipientEmail: i.recipientEmail,
+        recipientCompany: i.recipientCompany,
+        dueDate: i.dueDate,
+        paidAt: i.paidAt,
+        createdAt: i._creationTime,
+      })),
+      reviews: reviews.map((r) => ({
+        id: r._id,
+        facilityId: r.facilityId,
+        overallRating: r.overallRating,
+        waitTimeRating: r.waitTimeRating,
+        staffRating: r.staffRating,
+        comment: r.comment,
+        createdAt: r._creationTime,
+      })),
+      savedFacilities: savedFacilities.map((sf) => ({
+        id: sf._id,
+        facilityId: sf.facilityId,
+        googlePlaceId: sf.googlePlaceId,
+        name: sf.name,
+        address: sf.address,
+        city: sf.city,
+        state: sf.state,
+        notes: sf.notes,
+        savedAt: sf.savedAt,
+      })),
+      photoCount: photoMetadata.length,
+      summary: {
+        totalDetentionEvents: detentionEvents.length,
+        totalInvoices: invoices.length,
+        totalReviews: reviews.length,
+        totalSavedFacilities: savedFacilities.length,
+        totalPhotos: photoMetadata.length,
+        totalEarnings: detentionEvents.reduce((sum, e) => sum + (e.totalAmount || 0), 0),
+      },
+    };
+
+    return exportData;
+  },
+});

@@ -264,3 +264,192 @@ export const updateTruckEntrance = mutation({
     });
   },
 });
+
+// ============================================================================
+// SAVED FACILITIES
+// ============================================================================
+
+/**
+ * Get saved facilities for a user
+ */
+export const getSavedFacilities = query({
+  args: {
+    userId: v.id("users"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const q = ctx.db
+      .query("savedFacilities")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .order("desc"); // Most recently saved first
+
+    const results = args.limit ? await q.take(args.limit) : await q.collect();
+    return results;
+  },
+});
+
+/**
+ * Check if a facility is saved by a user
+ */
+export const isFacilitySaved = query({
+  args: {
+    userId: v.id("users"),
+    facilityId: v.optional(v.id("facilities")),
+    googlePlaceId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (args.facilityId) {
+      const saved = await ctx.db
+        .query("savedFacilities")
+        .withIndex("by_user_facility", (q) =>
+          q.eq("userId", args.userId).eq("facilityId", args.facilityId)
+        )
+        .first();
+      return saved !== null;
+    }
+
+    if (args.googlePlaceId) {
+      const saved = await ctx.db
+        .query("savedFacilities")
+        .withIndex("by_user_google_place", (q) =>
+          q.eq("userId", args.userId).eq("googlePlaceId", args.googlePlaceId)
+        )
+        .first();
+      return saved !== null;
+    }
+
+    return false;
+  },
+});
+
+/**
+ * Save a facility (from Convex DB or Google Places)
+ */
+export const saveFacility = mutation({
+  args: {
+    userId: v.id("users"),
+    facilityId: v.optional(v.id("facilities")),
+    googlePlaceId: v.optional(v.string()),
+    name: v.string(),
+    address: v.optional(v.string()),
+    city: v.optional(v.string()),
+    state: v.optional(v.string()),
+    lat: v.number(),
+    lng: v.number(),
+    facilityType: v.optional(
+      v.union(
+        v.literal("shipper"),
+        v.literal("receiver"),
+        v.literal("both"),
+        v.literal("unknown")
+      )
+    ),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Check if already saved
+    if (args.facilityId) {
+      const existing = await ctx.db
+        .query("savedFacilities")
+        .withIndex("by_user_facility", (q) =>
+          q.eq("userId", args.userId).eq("facilityId", args.facilityId)
+        )
+        .first();
+
+      if (existing) {
+        // Update notes if provided
+        if (args.notes !== undefined) {
+          await ctx.db.patch(existing._id, { notes: args.notes });
+        }
+        return existing._id;
+      }
+    }
+
+    if (args.googlePlaceId) {
+      const existing = await ctx.db
+        .query("savedFacilities")
+        .withIndex("by_user_google_place", (q) =>
+          q.eq("userId", args.userId).eq("googlePlaceId", args.googlePlaceId)
+        )
+        .first();
+
+      if (existing) {
+        // Update notes if provided
+        if (args.notes !== undefined) {
+          await ctx.db.patch(existing._id, { notes: args.notes });
+        }
+        return existing._id;
+      }
+    }
+
+    // Create new saved facility
+    const savedId = await ctx.db.insert("savedFacilities", {
+      userId: args.userId,
+      facilityId: args.facilityId,
+      googlePlaceId: args.googlePlaceId,
+      name: args.name,
+      address: args.address,
+      city: args.city,
+      state: args.state,
+      lat: args.lat,
+      lng: args.lng,
+      facilityType: args.facilityType,
+      notes: args.notes,
+      savedAt: Date.now(),
+    });
+
+    return savedId;
+  },
+});
+
+/**
+ * Remove a saved facility
+ */
+export const unsaveFacility = mutation({
+  args: {
+    userId: v.id("users"),
+    facilityId: v.optional(v.id("facilities")),
+    googlePlaceId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    let saved = null;
+
+    if (args.facilityId) {
+      saved = await ctx.db
+        .query("savedFacilities")
+        .withIndex("by_user_facility", (q) =>
+          q.eq("userId", args.userId).eq("facilityId", args.facilityId)
+        )
+        .first();
+    } else if (args.googlePlaceId) {
+      saved = await ctx.db
+        .query("savedFacilities")
+        .withIndex("by_user_google_place", (q) =>
+          q.eq("userId", args.userId).eq("googlePlaceId", args.googlePlaceId)
+        )
+        .first();
+    }
+
+    if (saved) {
+      await ctx.db.delete(saved._id);
+      return true;
+    }
+
+    return false;
+  },
+});
+
+/**
+ * Update notes on a saved facility
+ */
+export const updateSavedFacilityNotes = mutation({
+  args: {
+    savedFacilityId: v.id("savedFacilities"),
+    notes: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.savedFacilityId, {
+      notes: args.notes,
+    });
+  },
+});

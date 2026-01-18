@@ -7,7 +7,7 @@ import { Tabs, Redirect } from 'expo-router';
 import { Text, StyleSheet, View, ActivityIndicator } from 'react-native';
 import { useAuth } from '@clerk/clerk-expo';
 import { colors } from '../../src/constants/colors';
-import { useIsFleetAdmin } from '../../src/features/fleet';
+import { useIsFleetAdminStore } from '../../src/features/fleet';
 
 // Simple icon component - only render when focused to avoid duplicate on web
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
@@ -34,7 +34,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
 export default function TabLayout() {
   const theme = colors.dark;
   const { isSignedIn, isLoaded } = useAuth();
-  const isFleetAdmin = useIsFleetAdmin();
+  const isFleetAdmin = useIsFleetAdminStore();
 
   // Show loading while Clerk initializes
   if (!isLoaded) {

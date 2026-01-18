@@ -49,6 +49,9 @@ function AppContent() {
         <Stack.Screen name="fleet" options={{ headerShown: false }} />
         <Stack.Screen name="recovery" options={{ headerShown: false }} />
         <Stack.Screen name="invoice" options={{ headerShown: false }} />
+        <Stack.Screen name="subscription" options={{ headerShown: false, presentation: 'modal' }} />
+        <Stack.Screen name="help" options={{ headerShown: false }} />
+        <Stack.Screen name="legal" options={{ headerShown: false }} />
         </Stack>
       </View>
     </AuthSyncProvider>

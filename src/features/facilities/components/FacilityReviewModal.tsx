@@ -25,7 +25,7 @@ import * as Haptics from 'expo-haptics';
 import { colors } from '@/constants/colors';
 import { spacing, typography, radius, palette, animation } from '@/shared/theme/tokens';
 import { GlassCard } from '@/shared/components/ui';
-import { useCreateFacilityReview } from '../hooks/useFacilitiesConvex';
+import { useCreateReview } from '../hooks/useFacilitiesConvex';
 import type { Id } from '../../../../convex/_generated/dataModel';
 
 // Star icon component
@@ -106,7 +106,7 @@ export function FacilityReviewModal({
   onSubmitSuccess,
 }: FacilityReviewModalProps) {
   const theme = colors.dark;
-  const createReview = useCreateFacilityReview();
+  const createReview = useCreateReview();
 
   // Animation values
   const backdropOpacity = useSharedValue(0);

@@ -229,10 +229,11 @@ export default function FacilitiesTab() {
     setSelectedFacility(facility);
   }, []);
 
-  const handleLegacyFacilitySelect = useCallback((facility: any) => {
-    // Convert legacy facility type to new format
+  const handleSearchFacilitySelect = useCallback((facility: any) => {
+    // Convert search result to DisplayFacility format
+    // Handle both camelCase (new) and snake_case (legacy) property names
     const convertedFacility: DisplayFacility = {
-      _id: facility.id as Id<'facilities'>,
+      _id: (facility._id || facility.id) as Id<'facilities'>,
       name: facility.name,
       address: facility.address,
       city: facility.city,
@@ -240,17 +241,17 @@ export default function FacilitiesTab() {
       zip: facility.zip,
       lat: facility.lat || 0,
       lng: facility.lng || 0,
-      facilityType: facility.facility_type || 'unknown',
-      avgRating: facility.avg_rating,
-      avgWaitMinutes: facility.avg_wait_minutes,
-      totalReviews: facility.total_reviews || 0,
-      overnightParking: facility.overnight_parking,
+      facilityType: facility.facilityType || facility.facility_type || 'unknown',
+      avgRating: facility.avgRating ?? facility.avg_rating,
+      avgWaitMinutes: facility.avgWaitMinutes ?? facility.avg_wait_minutes,
+      totalReviews: facility.totalReviews || facility.total_reviews || 0,
+      overnightParking: facility.overnightParking ?? facility.overnight_parking,
       restrooms: facility.restrooms,
-      driverLounge: facility.driver_lounge,
-      waterAvailable: facility.water_available,
-      vendingMachines: facility.vending_machines,
-      wifiAvailable: facility.wifi_available,
-      showersAvailable: facility.showers_available,
+      driverLounge: facility.driverLounge ?? facility.driver_lounge,
+      waterAvailable: facility.waterAvailable ?? facility.water_available,
+      vendingMachines: facility.vendingMachines ?? facility.vending_machines,
+      wifiAvailable: facility.wifiAvailable ?? facility.wifi_available,
+      showersAvailable: facility.showersAvailable ?? facility.showers_available,
     };
     handleFacilitySelect(convertedFacility);
   }, [handleFacilitySelect]);
@@ -335,17 +336,18 @@ export default function FacilitiesTab() {
           </View>
 
           {/* Quick Search */}
-          <View style={styles.section}>
+          <View style={styles.searchSection}>
             <Text style={styles.sectionTitle}>Quick Search</Text>
             <FacilitySearch
-              onSelect={handleLegacyFacilitySelect}
+              onSelect={handleSearchFacilitySelect}
+              currentLocation={currentLocation}
               userId={userId}
-              placeholder="Search facilities..."
+              placeholder="Search facilities or addresses..."
             />
           </View>
 
           {/* Recent Facilities */}
-          <View style={styles.section}>
+          <View style={[styles.section, { zIndex: 1 }]}>
             <Text style={styles.sectionTitle}>Recently Visited</Text>
 
             {isLoadingRecent ? (
@@ -511,6 +513,12 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: spacing.xl,
+    zIndex: 1,
+  },
+  searchSection: {
+    marginBottom: spacing.xl,
+    zIndex: 99999,
+    position: 'relative',
   },
   sectionTitle: {
     fontSize: typography.size.sm,

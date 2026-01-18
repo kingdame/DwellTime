@@ -3,7 +3,8 @@
  */
 
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { action, mutation, query } from "./_generated/server";
+import Stripe from "stripe";
 
 // ============================================================================
 // QUERIES
@@ -210,3 +211,154 @@ export const cancel = mutation({
     });
   },
 });
+
+// ============================================================================
+// STRIPE ACTIONS
+// ============================================================================
+
+/**
+ * Price IDs for each tier (configure these in your Stripe dashboard)
+ * These should be set as environment variables for production
+ */
+const STRIPE_PRICE_IDS: Record<string, { monthly: string; annual: string }> = {
+  pro: {
+    monthly: process.env.STRIPE_PRICE_PRO_MONTHLY || "price_pro_monthly",
+    annual: process.env.STRIPE_PRICE_PRO_ANNUAL || "price_pro_annual",
+  },
+  small_fleet: {
+    monthly: process.env.STRIPE_PRICE_SMALL_FLEET_MONTHLY || "price_small_fleet_monthly",
+    annual: process.env.STRIPE_PRICE_SMALL_FLEET_ANNUAL || "price_small_fleet_annual",
+  },
+  fleet: {
+    monthly: process.env.STRIPE_PRICE_FLEET_MONTHLY || "price_fleet_monthly",
+    annual: process.env.STRIPE_PRICE_FLEET_ANNUAL || "price_fleet_annual",
+  },
+};
+
+/**
+ * Create a Stripe checkout session for subscription
+ */
+export const createCheckoutSession = action({
+  args: {
+    userId: v.id("users"),
+    tier: v.union(
+      v.literal("pro"),
+      v.literal("small_fleet"),
+      v.literal("fleet")
+    ),
+    interval: v.union(v.literal("monthly"), v.literal("annual")),
+    successUrl: v.string(),
+    cancelUrl: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ sessionId: string; url: string }> => {
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeSecretKey) {
+      throw new Error("Stripe not configured");
+    }
+
+    // @ts-expect-error - Stripe SDK expects specific API version string
+    const stripe = new Stripe(stripeSecretKey);
+
+    // Get user from database
+    const user = await ctx.runQuery(api.users.get, { id: args.userId });
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get or create Stripe customer
+    let customerId = user.stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        name: user.name || undefined,
+        metadata: {
+          userId: args.userId,
+        },
+      });
+      customerId = customer.id;
+
+      // Store customer ID on user
+      await ctx.runMutation(api.users.updateStripeCustomerId, {
+        id: args.userId,
+        stripeCustomerId: customerId,
+      });
+    }
+
+    // Get price ID for the selected tier and interval
+    const priceConfig = STRIPE_PRICE_IDS[args.tier];
+    if (!priceConfig) {
+      throw new Error(`Invalid tier: ${args.tier}`);
+    }
+    const priceId = priceConfig[args.interval];
+
+    // Create checkout session
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: "subscription",
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      success_url: args.successUrl,
+      cancel_url: args.cancelUrl,
+      subscription_data: {
+        metadata: {
+          userId: args.userId,
+          tier: args.tier,
+        },
+        trial_period_days: 7, // 7-day free trial
+      },
+      metadata: {
+        userId: args.userId,
+        tier: args.tier,
+      },
+      allow_promotion_codes: true,
+    });
+
+    return {
+      sessionId: session.id,
+      url: session.url || "",
+    };
+  },
+});
+
+/**
+ * Create a Stripe customer portal session for managing subscription
+ */
+export const createCustomerPortalSession = action({
+  args: {
+    userId: v.id("users"),
+    returnUrl: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ url: string }> => {
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeSecretKey) {
+      throw new Error("Stripe not configured");
+    }
+
+    // @ts-expect-error - Stripe SDK expects specific API version string
+    const stripe = new Stripe(stripeSecretKey);
+
+    // Get user's Stripe customer ID
+    const user = await ctx.runQuery(api.users.get, { id: args.userId });
+    if (!user?.stripeCustomerId) {
+      throw new Error("No Stripe customer found for user");
+    }
+
+    // Create portal session
+    const session = await stripe.billingPortal.sessions.create({
+      customer: user.stripeCustomerId,
+      return_url: args.returnUrl,
+    });
+
+    return {
+      url: session.url,
+    };
+  },
+});
+
+// Import api for actions
+import { api } from "./_generated/api";
