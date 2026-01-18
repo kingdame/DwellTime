@@ -24,25 +24,27 @@ import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import type { BillingInterval, PricingPlan, SubscriptionTier } from '../../src/features/billing/types';
 
-// Pricing plans data
+// Pricing plans data - matches docs/PRICING_STRATEGY.md
 const PRICING_PLANS: PricingPlan[] = [
   {
     tier: 'free',
     name: 'Free',
-    description: 'Perfect for getting started',
+    description: 'Try DwellTime risk-free',
     monthlyPrice: 0,
     annualPrice: 0,
     features: [
-      'Track up to 10 detention events/month',
-      'Basic invoice generation',
-      'Single user',
-      'Email support',
+      '3 detention events/month',
+      'GPS tracking',
+      'Photo evidence',
+      'PDF invoice + email',
+      'View facility ratings',
+      'Add your own ratings',
     ],
     limits: {
-      maxEvents: 10,
+      maxEvents: 3,
       maxStorage: '100 MB',
-      pdfExport: false,
-      emailInvoices: false,
+      pdfExport: true,
+      emailInvoices: true,
       analyticsReports: false,
       fleetManagement: false,
     },
@@ -51,15 +53,16 @@ const PRICING_PLANS: PricingPlan[] = [
     tier: 'pro',
     name: 'Pro',
     description: 'For independent owner-operators',
-    monthlyPrice: 19,
-    annualPrice: 190,
+    monthlyPrice: 12.99,
+    annualPrice: 99,
     features: [
       'Unlimited detention tracking',
-      'PDF invoice export',
-      'Email invoices directly',
-      'Photo documentation',
-      'Analytics dashboard',
-      'Priority support',
+      'Full facility intelligence',
+      'Payment reliability data',
+      'Load check (before you go)',
+      'Money recovery tracker',
+      'Invoice follow-up tools',
+      'Nearby services',
     ],
     limits: {
       maxEvents: -1,
@@ -75,16 +78,16 @@ const PRICING_PLANS: PricingPlan[] = [
   {
     tier: 'small_fleet',
     name: 'Small Fleet',
-    description: 'For small trucking companies',
-    monthlyPrice: 49,
-    annualPrice: 490,
+    description: '2-5 drivers',
+    monthlyPrice: 49.99,
+    annualPrice: 399,
     features: [
-      'Everything in Pro',
-      'Up to 10 drivers',
+      'Everything in Pro, plus:',
       'Fleet dashboard',
-      'Driver management',
-      'Team invoicing',
-      'API access',
+      'View all driver events',
+      'Admin account (view-only)',
+      'Export reports (CSV, PDF)',
+      'Set company-wide defaults',
     ],
     limits: {
       maxEvents: -1,
@@ -94,21 +97,19 @@ const PRICING_PLANS: PricingPlan[] = [
       analyticsReports: true,
       fleetManagement: true,
     },
-    trialDays: 7,
+    trialDays: 14,
   },
   {
     tier: 'fleet',
     name: 'Fleet',
-    description: 'For large operations',
-    monthlyPrice: 149,
-    annualPrice: 1490,
+    description: '6-10 drivers',
+    monthlyPrice: 79.99,
+    annualPrice: 649,
     features: [
       'Everything in Small Fleet',
-      'Unlimited drivers',
-      'Advanced analytics',
-      'Custom integrations',
-      'Dedicated support',
-      'SLA guarantee',
+      'Priority support',
+      'Dedicated account rep',
+      'Custom onboarding',
     ],
     limits: {
       maxEvents: -1,
@@ -123,7 +124,7 @@ const PRICING_PLANS: PricingPlan[] = [
   {
     tier: 'enterprise',
     name: 'Enterprise',
-    description: 'Custom solutions for large fleets',
+    description: '11+ drivers - Custom pricing',
     monthlyPrice: 0,
     annualPrice: 0,
     features: [
@@ -245,7 +246,7 @@ export default function SubscriptionScreen() {
             Choose Your Plan
           </Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-            Start with a 7-day free trial. Cancel anytime.
+            ROI: One recovered detention event pays for a year of Pro.
           </Text>
         </View>
 
@@ -254,7 +255,7 @@ export default function SubscriptionScreen() {
           <IntervalToggle interval={interval} onChange={setInterval} />
           {interval === 'annual' && (
             <Text style={[styles.savingsText, { color: theme.success }]}>
-              Save up to 17% with annual billing
+              Save up to 36% with annual billing
             </Text>
           )}
         </View>
@@ -308,28 +309,37 @@ export default function SubscriptionScreen() {
 
           <View style={[styles.faqItem, { backgroundColor: theme.card }]}>
             <Text style={[styles.faqQuestion, { color: theme.textPrimary }]}>
+              What's the ROI on Pro?
+            </Text>
+            <Text style={[styles.faqAnswer, { color: theme.textSecondary }]}>
+              One recovered detention event ($75-150) pays for your entire year of Pro ($99). That's 75-150% ROI on your first event alone.
+            </Text>
+          </View>
+
+          <View style={[styles.faqItem, { backgroundColor: theme.card }]}>
+            <Text style={[styles.faqQuestion, { color: theme.textPrimary }]}>
+              What's included in Free?
+            </Text>
+            <Text style={[styles.faqAnswer, { color: theme.textSecondary }]}>
+              Free includes 3 detention events per month with GPS tracking, photo evidence, PDF invoices, and the ability to view and add facility ratings. Forever free, no credit card required.
+            </Text>
+          </View>
+
+          <View style={[styles.faqItem, { backgroundColor: theme.card }]}>
+            <Text style={[styles.faqQuestion, { color: theme.textPrimary }]}>
+              Why is Pro worth $12.99?
+            </Text>
+            <Text style={[styles.faqAnswer, { color: theme.textSecondary }]}>
+              Pro gives you unlimited tracking plus our exclusive Payment Reliability Data — know if a facility actually pays before you accept the load. No competitor offers this.
+            </Text>
+          </View>
+
+          <View style={[styles.faqItem, { backgroundColor: theme.card }]}>
+            <Text style={[styles.faqQuestion, { color: theme.textPrimary }]}>
               Can I cancel anytime?
             </Text>
             <Text style={[styles.faqAnswer, { color: theme.textSecondary }]}>
-              Yes! You can cancel your subscription at any time. Your access will continue until the end of your billing period.
-            </Text>
-          </View>
-
-          <View style={[styles.faqItem, { backgroundColor: theme.card }]}>
-            <Text style={[styles.faqQuestion, { color: theme.textPrimary }]}>
-              What payment methods do you accept?
-            </Text>
-            <Text style={[styles.faqAnswer, { color: theme.textSecondary }]}>
-              We accept all major credit cards (Visa, Mastercard, American Express) through our secure payment processor, Stripe.
-            </Text>
-          </View>
-
-          <View style={[styles.faqItem, { backgroundColor: theme.card }]}>
-            <Text style={[styles.faqQuestion, { color: theme.textPrimary }]}>
-              Is there a free trial?
-            </Text>
-            <Text style={[styles.faqAnswer, { color: theme.textSecondary }]}>
-              Yes! All paid plans include a 7-day free trial. You won't be charged until the trial ends.
+              Yes! Cancel your subscription at any time. Your access continues until the end of your billing period.
             </Text>
           </View>
         </View>

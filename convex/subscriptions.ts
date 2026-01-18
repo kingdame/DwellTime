@@ -291,6 +291,9 @@ export const createCheckoutSession = action({
     }
     const priceId = priceConfig[args.interval];
 
+    // Trial days based on tier: Pro gets 7 days, Fleet plans get 14 days
+    const trialDays = args.tier === 'pro' ? 7 : 14;
+
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -309,7 +312,7 @@ export const createCheckoutSession = action({
           userId: args.userId,
           tier: args.tier,
         },
-        trial_period_days: 7, // 7-day free trial
+        trial_period_days: trialDays,
       },
       metadata: {
         userId: args.userId,
